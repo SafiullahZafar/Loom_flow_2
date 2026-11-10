@@ -16,7 +16,7 @@
     <section class="card p-6 space-y-4 shadow-2xs">
         <div class="pb-3 border-b border-[#e2e8e0]">
             <h2 class="text-base font-extrabold text-[#133e2b]">Order-wise Production and Party Hisaab</h2>
-            <p class="text-xs text-stone-500">Yarn weight is theoretical from the saved Parta. The recorded Taana/Baana issues are entered manually; compare them with actual verified consumption before settling.</p>
+            <p class="text-xs text-stone-500">Parta yarn estimates use checked metres and are converted from lb to kg. Recorded Taana/Baana issues are shown in kg. Metre variance is loom output minus checked length; investigate any difference before settling.</p>
         </div>
 
         <div class="overflow-x-auto">
@@ -27,10 +27,11 @@
                         <th class="p-3">Quality</th>
                         <th class="p-3 text-right">Loom (m)</th>
                         <th class="p-3 text-right">Checked (m)</th>
+                        <th class="p-3 text-right">Loom − Checked (m)</th>
                         <th class="p-3 text-right">Dispatched (m)</th>
                         <th class="p-3 text-right">Accepted (m)</th>
                         <th class="p-3 text-right">Job Bill (Rs)</th>
-                        <th class="p-3 text-right">Parta warp+weft (lb)</th>
+                        <th class="p-3 text-right">Parta estimate (kg)</th>
                         <th class="p-3 text-right">Recorded yarn issued (kg)</th>
                     </tr>
                 </thead>
@@ -44,16 +45,19 @@
                             <td class="p-3 text-stone-700">{{ $r['order']->fabricStock?->quality_name }}</td>
                             <td class="p-3 text-right text-stone-700 tabular-nums">{{ number_format($r['meterOutput'],2) }}</td>
                             <td class="p-3 text-right text-stone-700 tabular-nums">{{ number_format($r['checked'],2) }}</td>
+                            <td class="p-3 text-right font-semibold tabular-nums {{ abs($r['meterVariance']) > 0.01 ? 'text-amber-700' : 'text-stone-700' }}" title="Loom output minus checked metres">{{ $r['meterVariance'] > 0 ? '+' : '' }}{{ number_format($r['meterVariance'],2) }}</td>
                             <td class="p-3 text-right text-stone-700 tabular-nums">{{ number_format($r['dispatched'],2) }}</td>
                             <td class="p-3 text-right text-stone-700 tabular-nums">{{ number_format($r['accepted'],2) }}</td>
                             <td class="p-3 text-right font-black text-[#133e2b] tabular-nums">Rs {{ number_format($r['billed'],2) }}</td>
-                            <td class="p-3 text-right text-stone-700 tabular-nums">{{ number_format($r['taana']+$r['baana'],2) }}</td>
+                            <td class="p-3 text-right text-stone-700 tabular-nums">
+                                Taana {{ number_format($r['partaTaanaKg'],2) }} / Baana {{ number_format($r['partaBaanaKg'],2) }}
+                            </td>
                             <td class="p-3 text-right font-semibold text-stone-700 tabular-nums">
                                 Taana {{ number_format($r['issuedTaana'],2) }} / Baana {{ number_format($r['issuedBaana'],2) }}
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="9" class="p-6 text-center text-stone-400 italic">No orders created yet.</td></tr>
+                        <tr><td colspan="10" class="p-6 text-center text-stone-400 italic">No orders created yet.</td></tr>
                     @endforelse
                 </tbody>
             </table>

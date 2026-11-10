@@ -23,11 +23,12 @@ class FactoryReportController extends Controller
         $rows = $orders->map(function (WorkOrder $order): array {
             $meterOutput = (float) Production::where('work_order_id', $order->id)->sum('net_meters_produced');
             $checked = (float) ThaanRoll::where('work_order_id', $order->id)->sum('length_meters');
+            $meterVariance = $meterOutput - $checked;
             $dispatched = (float) KachiParchi::where('work_order_id', $order->id)->sum('dispatched_meters');
             $accepted = (float) PakkiParchi::whereHas('kachi', fn ($q) => $q->where('work_order_id', $order->id))->sum('accepted_meters');
             $billed = (float) PakkiParchi::whereHas('kachi', fn ($q) => $q->where('work_order_id', $order->id))->sum('bill_amount');
-            $taana = (float) $order->parta?->warp_lb_per_meter * $checked;
-            $baana = (float) $order->parta?->weft_lb_per_meter * $checked;
+            $partaTaanaKg = (float) $order->parta?->warp_lb_per_meter * $checked / 2.2046226218;
+            $partaBaanaKg = (float) $order->parta?->weft_lb_per_meter * $checked / 2.2046226218;
             $issuedTaana = (float) YarnMovement::where('work_order_id', $order->id)->where('component', 'warp')
                 ->selectRaw('COALESCE(SUM(CASE WHEN movement_type IN (?, ?) THEN weight_kg WHEN movement_type IN (?, ?) THEN -weight_kg ELSE 0 END), 0) as net_weight_kg', ['issue', 'adjustment_out', 'return', 'adjustment_in'])
                 ->value('net_weight_kg');
@@ -35,7 +36,7 @@ class FactoryReportController extends Controller
                 ->selectRaw('COALESCE(SUM(CASE WHEN movement_type IN (?, ?) THEN weight_kg WHEN movement_type IN (?, ?) THEN -weight_kg ELSE 0 END), 0) as net_weight_kg', ['issue', 'adjustment_out', 'return', 'adjustment_in'])
                 ->value('net_weight_kg');
 
-            return compact('order', 'meterOutput', 'checked', 'dispatched', 'accepted', 'billed', 'taana', 'baana', 'issuedTaana', 'issuedBaana');
+            return compact('order', 'meterOutput', 'checked', 'meterVariance', 'dispatched', 'accepted', 'billed', 'partaTaanaKg', 'partaBaanaKg', 'issuedTaana', 'issuedBaana');
         });
 
         return view('factory.reports', [
