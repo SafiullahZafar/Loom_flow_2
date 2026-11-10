@@ -519,10 +519,11 @@
   const f=document.getElementById('parta-form'), display=document.getElementById('parta-preview');
   function preview(){const v=n=>Number(f.elements[n].value)||0;const read=v('read'),pick=v('pick'),width=v('width_inches'),warp=v('warp_count'),weft=v('weft_count');
    if(!read||!pick||!width||!warp||!weft){display.textContent='Enter fabric specification to preview weight and cost.';return;}
-   const tr=x=>Math.floor((x+0.000000001)*10000)/10000;
-   const a=tr(read*width/warp*1.0936/800),b=tr(pick*width/weft*1.0936/800),kg=(a+b)/2.2046226218;
-   const cost=a*v('warp_rate_per_lb')+b*v('weft_rate_per_lb')+pick*v('conversion_rate_per_pick');
-   display.textContent='Taana '+a.toFixed(4)+' lb/m · Baana '+b.toFixed(4)+' lb/m · Total '+(kg*1000).toFixed(2)+' grams/m · GSM '+(kg*1000/(width*.0254)).toFixed(2)+' · Cost Rs '+cost.toFixed(2)+'/m'; }
+   const trunc=x=>Math.floor((x+0.000000001)*10000)/10000, paisa=x=>Math.floor((x+0.000000001)*100)/100;
+   const a=trunc(read*width/warp*1.0936/800),b=trunc(pick*width/weft*1.0936/800),kg=(a+b)/2.2046226218;
+   const cost=paisa(a*v('warp_rate_per_lb'))+paisa(b*v('weft_rate_per_lb'))+paisa(pick*v('conversion_rate_per_pick'));
+   const gsm=(read/warp+pick/weft)*25.25;
+   display.textContent='Taana '+a.toFixed(4)+' lb/m · Baana '+b.toFixed(4)+' lb/m · Total '+paisa(kg*1000).toFixed(2)+' grams/m · GSM '+gsm.toFixed(2)+' · Cost Rs '+cost.toFixed(2)+'/m'; }
   f.querySelectorAll('input').forEach(el=>el.addEventListener('input',preview));preview();
   const beam=document.getElementById('beam-selector'),out=document.getElementById('settlement-preview');
   const beamForm=beam.closest('form');function settlement(){const op=beam.selectedOptions[0];const supplied=Number(beamForm.elements['remaining_weight_kg'].value)||0;

@@ -24,15 +24,19 @@ class PartaService
         $w = $this->calculator->calculate($read, $pick, $width, $warpCount, $weftCount);
         $lbs = $w['total_weight_per_meter_lb'];
         $kg = $lbs / 2.2046226218;
+        $truncateToPaisa = static fn (float $amount): float => floor(($amount + 0.000000001) * 100) / 100;
+        $warpCost = $truncateToPaisa($w['warp_weight_per_meter_lb'] * $warpRate);
+        $weftCost = $truncateToPaisa($w['weft_weight_per_meter_lb'] * $weftRate);
+        $conversionCost = $truncateToPaisa($pick * $perPick);
 
         return [
             'warp_lb_per_meter' => $w['warp_weight_per_meter_lb'],
             'weft_lb_per_meter' => $w['weft_weight_per_meter_lb'],
             'total_lb_per_meter' => $lbs,
             'kg_per_meter' => round($kg, 6),
-            'grams_per_meter' => round($kg * 1000, 3),
-            'gsm' => round(($kg * 1000) / ($width * 0.0254), 3),
-            'cost_per_meter' => round($w['warp_weight_per_meter_lb'] * $warpRate + $w['weft_weight_per_meter_lb'] * $weftRate + $pick * $perPick, 4),
+            'grams_per_meter' => $truncateToPaisa($kg * 1000),
+            'gsm' => round((($read / $warpCount) + ($pick / $weftCount)) * 25.25, 2),
+            'cost_per_meter' => $warpCost + $weftCost + $conversionCost,
         ];
     }
 
@@ -55,6 +59,7 @@ class PartaService
             'total_weight_per_meter_lb' => $calculated['total_lb_per_meter'],
             'unit_cost_meter' => $calculated['cost_per_meter'],
         ]);
+
         return $record;
     }
 }
