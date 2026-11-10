@@ -1,0 +1,64 @@
+@extends('layouts.app')
+@section('title', 'Kachi & Pakki Parchi')
+@section('content')
+<div class="max-w-7xl mx-auto space-y-6 pb-12">
+    <header><h1 class="text-2xl font-black">Dispatch · Kachi / Pakki Parchi · Returns</h1><p class="text-sm text-zinc-500">Kachi = sent fabric. Pakki = accepted fabric. Bill is based on Pakki metres only.</p></header>
+    @include('factory._nav')
+    <div class="grid lg:grid-cols-2 gap-5">
+        <section class="card p-5 space-y-3" id="kachi"><h2 class="font-extrabold text-lg">1. New Kachi Parchi (Job Work)</h2>
+            <form method="POST" action="{{ route('factory.kachi.store') }}" class="space-y-3">@csrf
+                <div class="grid grid-cols-2 gap-3"><label class="text-xs font-semibold">Kachi No.<input name="parchi_no" required class="w-full border rounded-lg p-2 mt-1"></label><label class="text-xs font-semibold">Dispatch Date<input name="dispatch_date" type="date" value="{{ date('Y-m-d') }}" required class="w-full border rounded-lg p-2 mt-1"></label></div>
+                <label class="block text-xs font-semibold">Order<select name="work_order_id" class="w-full border rounded-lg p-2 mt-1" id="kachi-order" required><option value="">Choose order</option>@foreach($jobOrders as $o)<option value="{{ $o->id }}">{{ $o->order_no }} · {{ $o->party_name }}</option>@endforeach</select></label>
+                <p class="text-xs font-bold">Select checked Thaans (lengths added automatically):</p>
+                <div class="border rounded-xl p-2 max-h-56 overflow-auto bg-zinc-50 space-y-1" id="kachi-rolls">@forelse($rolls->whereIn('status',['ready','returned_ready'])->filter(fn($r)=>$r->order?->type==='job') as $r)<label data-order="{{ $r->work_order_id }}" class="kachi-option hidden text-xs flex items-center gap-2 p-1"><input type="checkbox" name="roll_ids[]" value="{{ $r->id }}" data-meters="{{ $r->length_meters }}"> {{ $r->roll_no }} · {{ $r->loom_no }} · {{ number_format((float)$r->length_meters,2) }}m @if($r->status==='returned_ready') (resent) @endif</label>@empty<p class="text-xs text-zinc-500">No available checked customer Thaans.</p>@endforelse</div>
+                <p class="text-xs font-bold">Selected: <span id="kachi-count">0</span> Thaans · <span id="kachi-meters">0.00</span>m</p>
+                <input name="vehicle_no" placeholder="Vehicle (optional)" class="w-full border rounded-lg p-2 text-sm"><input name="notes" placeholder="Notes" class="w-full border rounded-lg p-2 text-sm">
+                <button class="w-full bg-zinc-900 text-white rounded-lg p-3 font-bold">Save Kachi Dispatch</button>
+            </form>
+        </section>
+        <section class="card p-5 space-y-3" id="pakki"><h2 class="font-extrabold text-lg">2. Receive Pakki Parchi & Generate Bill</h2><p class="text-xs text-zinc-500">One Pakki per Kachi. Invoice is created automatically for accepted metres × picks × per-pick rate.</p>
+            <form method="POST" action="{{ route('factory.pakki.store') }}" class="space-y-3">@csrf
+                <label class="block text-xs font-semibold">Kachi awaiting Pakki<select name="kachi_parchi_id" class="w-full border rounded-lg p-2 mt-1" required><option value="">Select Kachi</option>@foreach($pendingKachis as $k)@if(!$k->pakki)<option value="{{ $k->id }}">{{ $k->parchi_no }} · {{ $k->order?->party_name }} · {{ $k->dispatched_meters }}m · {{ $k->thaan_count }} Thaans</option>@endif @endforeach</select></label>
+                <div class="grid grid-cols-2 gap-3"><label class="text-xs font-semibold">Pakki No.<input name="parchi_no" required class="w-full border rounded-lg p-2 mt-1"></label><label class="text-xs font-semibold">Received On<input type="date" name="received_date" value="{{ date('Y-m-d') }}" required class="w-full border rounded-lg p-2 mt-1"></label>
+                <label class="text-xs font-semibold">Accepted Thaans (count)<input type="number" min="0" step="1" name="accepted_thaans" required class="w-full border rounded-lg p-2 mt-1"></label><label class="text-xs font-semibold">Accepted Metres<input type="number" min="0" step=".01" name="accepted_meters" required class="w-full border rounded-lg p-2 mt-1"></label>
+                <label class="text-xs font-semibold">Rejected Metres<input type="number" min="0" step=".01" name="rejected_meters" value="0" required class="w-full border rounded-lg p-2 mt-1"></label></div>
+                <input name="notes" placeholder="Customer remarks (optional)" class="w-full border rounded-lg p-2 text-sm">
+                <button class="w-full bg-zinc-900 text-white rounded-lg p-3 font-bold" onclick="return confirm('Confirm Pakki accepted quantities? A weaving invoice will be generated immediately.')">Save Pakki & Generate Weaving Bill</button>
+            </form>
+        </section>
+    </div>
+    <div class="grid lg:grid-cols-2 gap-5">
+        <section class="card p-5 space-y-3" id="returns"><h2 class="text-lg font-extrabold">3. Record Rejected Thaan Return</h2><p class="text-xs text-zinc-500">Customer sends complete Thaans with your original markings. Original lengths are retained.</p>
+            <form method="POST" action="{{ route('factory.returns.store') }}" class="space-y-3">@csrf
+                <label class="block text-xs font-semibold">Kachi with Pakki rejection<select name="kachi_parchi_id" id="return-kachi" required class="w-full border rounded-lg p-2 mt-1"><option value="">Choose Kachi</option>@foreach($rejectedKachis as $k)@if($k->pakki && (float)$k->pakki->rejected_meters > 0)<option value="{{ $k->id }}">{{ $k->parchi_no }} · Rejected {{ $k->pakki->rejected_meters }}m</option>@endif @endforeach</select></label>
+                <div class="border rounded-lg bg-zinc-50 p-2 max-h-48 overflow-auto">@foreach($rejectedKachis as $k)@if($k->pakki && (float)$k->pakki->rejected_meters > 0)@foreach($k->items as $item)@if($item->roll?->status==='dispatched')<label data-kachi="{{ $k->id }}" class="return-option hidden flex items-center gap-2 p-1 text-xs"><input type="checkbox" name="roll_ids[]" value="{{ $item->roll->id }}"> {{ $item->roll->roll_no }} — {{ $item->length_meters }}m</label>@endif @endforeach @endif @endforeach</div>
+                <label class="block text-xs font-semibold">Returned On<input name="returned_on" type="date" value="{{ date('Y-m-d') }}" required class="mt-1 border rounded-lg w-full p-2"></label>
+                <button class="bg-zinc-900 text-white rounded-lg p-3 font-bold w-full">Record Physical Return</button>
+            </form>
+        </section>
+        <section class="card p-5 space-y-3" id="disposition"><h2 class="text-lg font-extrabold">4. Decide Rejected Fabric Use</h2><p class="text-xs text-zinc-500">Resend as A-category, return to party, settle and keep, approved external sale, or carry forward.</p>
+            <form method="POST" action="{{ route('factory.disposition.store') }}" class="space-y-3">@csrf
+                <label class="block text-xs font-semibold">Returned rejected Thaan<select name="thaan_roll_id" required class="w-full border rounded-lg p-2 mt-1"><option value="">Choose returned Thaan</option>@foreach($rolls->where('status','returned_hold') as $r)<option value="{{ $r->id }}">{{ $r->roll_no }} · {{ $r->order?->order_no }} · {{ $r->length_meters }}m</option>@endforeach</select></label>
+                <label class="block text-xs font-semibold">Decision<select name="action" required class="w-full border rounded-lg p-2 mt-1"><option value="resend_a">Reclassify A → Send again on new Kachi</option><option value="return_customer">Return fabric to customer</option><option value="settle_keep">Settle with customer and keep in factory stock</option><option value="sell_approved">Settle and sell elsewhere with customer approval</option><option value="carry_forward">Carry to another contract of same party and quality</option></select></label>
+                <label class="block text-xs font-semibold">Destination Order (only if carry forward)<select name="to_work_order_id" class="w-full border rounded-lg p-2 mt-1"><option value="">Not required</option>@foreach($jobOrders as $o)<option value="{{ $o->id }}">{{ $o->order_no }} · {{ $o->party_name }}</option>@endforeach</select></label>
+                <div class="grid grid-cols-2 gap-3"><label class="text-xs font-semibold">Agreed settlement (Rs if applicable)<input type="number" name="settlement_amount" min="0" step=".01" class="w-full border rounded-lg p-2 mt-1"></label><label class="text-xs font-semibold">Approval / Agreement Ref<input name="approval_reference" class="w-full border rounded-lg p-2 mt-1"></label></div>
+                <label class="block text-xs font-semibold">Decision Date<input name="action_date" type="date" required value="{{ date('Y-m-d') }}" class="w-full border rounded-lg p-2 mt-1"></label>
+                <input name="notes" class="w-full border rounded-lg p-2 text-sm" placeholder="Notes about settlement">
+                <button class="w-full bg-zinc-900 text-white rounded-lg p-3 font-bold">Save Fabric Decision</button>
+            </form>
+        </section>
+    </div>
+    <section class="card p-5 space-y-3" id="own-sale"><h2 class="text-lg font-extrabold">Own Manufacturing — Sell Checked A-Grade Thaans</h2>
+        <form method="POST" action="{{ route('factory.own-sale.store') }}" class="space-y-3">@csrf
+            <div class="grid sm:grid-cols-4 gap-3"><label class="text-xs font-semibold">Sale Slip No.<input required name="slip_no" class="w-full mt-1 border rounded-lg p-2"></label><label class="text-xs font-semibold">Buyer<input required name="buyer_name" class="w-full mt-1 border rounded-lg p-2"></label><label class="text-xs font-semibold">Rs per metre<input required name="rate_per_meter" type="number" step=".01" min="0" class="w-full mt-1 border rounded-lg p-2"></label><label class="text-xs font-semibold">Sale Date<input required name="sale_date" type="date" value="{{ date('Y-m-d') }}" class="w-full mt-1 border rounded-lg p-2"></label></div>
+            <p class="text-xs font-bold">Select only Thaans of ONE quality:</p><div class="border rounded-lg p-2 max-h-40 overflow-auto bg-zinc-50 grid sm:grid-cols-3 gap-2">@forelse($rolls->filter(fn($r)=>$r->status==='ready' && $r->owner_type==='factory') as $r)<label class="text-xs flex items-center gap-2"><input type="checkbox" name="roll_ids[]" value="{{ $r->id }}"> {{ $r->roll_no }} — {{ $r->length_meters }}m · {{ $r->order?->order_no }}</label>@empty<p class="text-xs text-zinc-500">No factory-owned checked Thaans are currently ready.</p>@endforelse</div>
+            <input name="notes" placeholder="Optional notes" class="w-full border rounded-lg p-2 text-sm"><button class="w-full bg-zinc-900 text-white rounded-lg p-3 font-bold">Record Own-Fabric Sale</button>
+        </form>
+    </section>
+    <section class="card p-5"><h2 class="font-extrabold mb-3">Kachi / Pakki History</h2><div class="overflow-x-auto"><table class="w-full text-xs"><thead class="bg-zinc-100"><tr><th class="p-2 text-left">Kachi</th><th>Order</th><th>Thaans</th><th>Dispatched</th><th>Pakki</th><th>Accepted</th><th>Rejected</th><th>Bill (Rs)</th></tr></thead><tbody>@forelse($kachis as $k)<tr class="border-t"><td class="p-2 font-bold"><a href="{{ route('factory.kachi.print',$k) }}" target="_blank" class="underline">{{ $k->parchi_no }}</a></td><td>{{ $k->order?->order_no }}</td><td>{{ $k->thaan_count }}</td><td>{{ number_format((float)$k->dispatched_meters,2) }}m</td><td>@if($k->pakki)<a href="{{ route('factory.pakki.print',$k->pakki) }}" target="_blank" class="underline">{{ $k->pakki->parchi_no }}</a>@elsePending@endif</td><td>{{ number_format((float)$k->pakki?->accepted_meters,2) }}</td><td>{{ number_format((float)$k->pakki?->rejected_meters,2) }}</td><td>{{ number_format((float)$k->pakki?->bill_amount,2) }}</td></tr>@empty<tr><td colspan="8" class="p-3">No Kachi Parchis yet.</td></tr>@endforelse</tbody></table></div>{{ $kachis->links() }}</section>
+</div>
+<script>
+(function(){const order=document.getElementById('kachi-order'),labels=[...document.querySelectorAll('.kachi-option')];const update=()=>{let total=0,count=0;labels.forEach(el=>{const on=el.dataset.order===order.value;el.classList.toggle('hidden',!on);const c=el.querySelector('input');if(!on)c.checked=false;if(c.checked){count++;total+=Number(c.dataset.meters)||0}});document.getElementById('kachi-count').textContent=count;document.getElementById('kachi-meters').textContent=total.toFixed(2)};order.addEventListener('change',update);labels.forEach(e=>e.querySelector('input').addEventListener('change',update));update();
+const ret=document.getElementById('return-kachi'),rt=[...document.querySelectorAll('.return-option')];const updateRet=()=>rt.forEach(e=>{const on=e.dataset.kachi===ret.value;e.classList.toggle('hidden',!on);if(!on)e.querySelector('input').checked=false});ret.addEventListener('change',updateRet);updateRet();})();
+</script>
+@endsection
