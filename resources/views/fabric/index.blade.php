@@ -260,6 +260,28 @@
              SECTION 1 — Fabric Inventory Table
         ============================================================ --}}
         @if(in_array($page, ['dashboard', 'inventory'], true))
+        <section class="rounded-3xl border border-amber-200 bg-amber-50/60 shadow-sm overflow-hidden">
+            <div class="px-6 py-4 border-b border-amber-200/70">
+                <h2 class="text-sm font-extrabold text-zinc-900">Fabric Stock vs. Ready Thaan Reconciliation</h2>
+                <p class="mt-1 text-[11px] text-zinc-600">Stock should match the measured Thaans marked Ready or Returned Ready. Any difference is visible here and needs a reasoned adjustment or a tracked Thaan correction.</p>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full min-w-[600px] text-left text-xs">
+                    <thead><tr class="border-b border-amber-200/70 text-[10px] uppercase tracking-wide text-zinc-500"><th class="px-5 py-3">Quality</th><th class="px-5 py-3 text-right">Fabric stock (m)</th><th class="px-5 py-3 text-right">Ready Thaans (m)</th><th class="px-5 py-3 text-right">Difference (m)</th><th class="px-5 py-3">Reconciliation</th></tr></thead>
+                    <tbody class="divide-y divide-amber-100">
+                        @foreach($stockReconciliation as $row)
+                            <tr>
+                                <td class="px-5 py-3 font-bold text-zinc-800">{{ $row['fabric']->quality_name }}</td>
+                                <td class="px-5 py-3 text-right font-mono">{{ number_format((float) $row['fabric']->current_stock_meters, 2) }}</td>
+                                <td class="px-5 py-3 text-right font-mono">{{ number_format($row['tracked_meters'], 2) }}</td>
+                                <td class="px-5 py-3 text-right font-mono font-bold {{ abs($row['difference_meters']) < 0.01 ? 'text-emerald-700' : 'text-red-700' }}">{{ number_format($row['difference_meters'], 2) }}</td>
+                                <td class="px-5 py-3"><span class="rounded-full px-2 py-1 text-[10px] font-bold {{ abs($row['difference_meters']) < 0.01 ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800' }}">{{ abs($row['difference_meters']) < 0.01 ? 'Matched' : 'Review required' }}</span></td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        </section>
         <div class="rounded-3xl border border-zinc-200 bg-white shadow-sm overflow-hidden">
 
             <div class="flex items-center justify-between px-6 py-4 border-b border-zinc-100 bg-zinc-50">
@@ -447,10 +469,9 @@
                 <div class="rounded-xl border border-zinc-200 bg-zinc-50 p-3 text-xs"><p class="font-bold text-zinc-700">Weight calculation (stored per quality)</p><p class="mt-1 text-zinc-500">Warp lb/m = TRUNC(Read × Width ÷ Warp Count ÷ 20 × 1.0936 ÷ 40, 4)</p><p class="text-zinc-500">Weft lb/m = TRUNC(Pick × Width ÷ Weft Count ÷ 20 × 1.0936 ÷ 40, 4)</p><div class="mt-2 grid grid-cols-3 gap-2 border-t border-zinc-200 pt-2 font-mono"><span>Warp: <strong id="fabricWarpWeightPreview">0.0000</strong></span><span>Weft: <strong id="fabricWeftWeightPreview">0.0000</strong></span><span>Total lb/m: <strong id="fabricTotalWeightPreview">0.0000</strong></span></div></div>
                 <p class="rounded-xl bg-zinc-50 p-3 text-xs text-zinc-500">A new quality starts with zero stock. Total weight is calculated from these specifications and saved with the quality.</p>
             </div>
-            <div class="grid grid-cols-2 gap-3"><label class="text-xs font-semibold">Previous stock (m)<input id="previousStockMeters" name="previous_stock_meters" type="number" readonly value="0" class="mt-1 w-full rounded-xl border bg-zinc-100 px-3 py-2 font-mono font-bold"></label><label class="text-xs font-semibold">Received today (m)<input name="daily_received_meters" type="number" min="0" step="0.01" value="0" class="mt-1 w-full rounded-xl border px-3 py-2"></label></div>
-            <div class="grid grid-cols-2 gap-3"><label class="text-xs font-semibold">Adjustment (+ / − m)<input name="adjustment_meters" type="number" step="0.01" value="0" class="mt-1 w-full rounded-xl border px-3 py-2"></label><label class="text-xs font-semibold">Dispatch (m)<input name="dispatch_meters" type="number" min="0" step="0.01" value="0" class="mt-1 w-full rounded-xl border px-3 py-2"></label></div>
-            <div class="grid grid-cols-2 gap-3"><label class="text-xs font-semibold">Rolls received<input name="rolls_received" type="number" min="0" value="0" class="mt-1 w-full rounded-xl border px-3 py-2"></label><label class="text-xs font-semibold">Area<input id="stockArea" name="area" class="mt-1 w-full rounded-xl border px-3 py-2"></label></div>
-            <label class="block text-xs font-semibold">Remarks<input name="notes" class="mt-1 w-full rounded-xl border px-3 py-2"></label>
+            <div class="grid grid-cols-2 gap-3"><label class="text-xs font-semibold">Current stock (m)<input id="previousStockMeters" name="previous_stock_meters" type="number" readonly value="0" class="mt-1 w-full rounded-xl border bg-zinc-100 px-3 py-2 font-mono font-bold"></label><div class="rounded-xl bg-zinc-50 p-3 text-[11px] text-zinc-600">New fabric receipts and dispatches must use Checking, Kachi Parchi, or Own Manufacturing Sale with individual Thaan IDs.</div></div>
+            <div class="grid grid-cols-2 gap-3"><label class="text-xs font-semibold">Adjustment (+ / − m)<input name="adjustment_meters" type="number" step="0.01" value="0" class="mt-1 w-full rounded-xl border px-3 py-2"><span class="mt-1 block text-[10px] font-normal text-zinc-500">A non-zero adjustment requires a reason and appears in Thaan reconciliation.</span></label><label class="text-xs font-semibold">Area<input id="stockArea" name="area" class="mt-1 w-full rounded-xl border px-3 py-2"></label></div>
+            <label class="block text-xs font-semibold">Reason / Remarks (required for adjustment)<input name="notes" class="mt-1 w-full rounded-xl border px-3 py-2"></label>
             <div class="flex justify-end gap-2 border-t pt-3"><button type="button" onclick="closeModal('modalAddFabric')" class="rounded-xl bg-zinc-100 px-4 py-2 text-xs">Cancel</button><button class="rounded-xl bg-zinc-900 px-5 py-2 text-xs font-bold text-white">Save stock entry</button></div>
         </form>
     </div>

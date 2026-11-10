@@ -6,6 +6,8 @@ use App\Models\FabricStock;
 use App\Models\FabricStockMovement;
 use App\Models\SalesContract;
 use App\Models\SizingBeam;
+use App\Models\ThaanRoll;
+use App\Services\FactoryStockService;
 use App\YarnQualityWeightCalculator;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\RedirectResponse;
@@ -55,6 +57,16 @@ class FabricStockController extends Controller
     ): View {
 
         $allFabricQualities = FabricStock::orderBy('quality_name')->get();
+        $trackedThaanMeters = ThaanRoll::query()
+            ->selectRaw('fabric_stock_id, SUM(length_meters) as tracked_meters')
+            ->whereIn('status', ['ready', 'returned_ready'])
+            ->groupBy('fabric_stock_id')
+            ->pluck('tracked_meters', 'fabric_stock_id');
+        $stockReconciliation = $allFabricQualities->map(fn (FabricStock $fabric): array => [
+            'fabric' => $fabric,
+            'tracked_meters' => (float) $trackedThaanMeters->get($fabric->id, 0),
+            'difference_meters' => round((float) $fabric->current_stock_meters - (float) $trackedThaanMeters->get($fabric->id, 0), 2),
+        ]);
         $mountedBeams = SizingBeam::with('fabricStock')
             ->where('status', 'mounted_on_loom')
             ->orderBy('assigned_loom_no')
@@ -80,11 +92,12 @@ class FabricStockController extends Controller
             'totalInventoryValue',
             'allFabricQualities',
             'mountedBeams',
-            'stockMovements'
+            'stockMovements',
+            'stockReconciliation'
         ));
     }
 
-    public function storeStock(Request $request, YarnQualityWeightCalculator $weightCalculator, \App\Services\FactoryStockService $factoryStock): RedirectResponse
+    public function storeStock(Request $request, YarnQualityWeightCalculator $weightCalculator, FactoryStockService $factoryStock): RedirectResponse
     {
         $validated = $request->validate([
             'quality_mode' => 'required|in:existing,new',
@@ -122,6 +135,16 @@ class FabricStockController extends Controller
         $received = (float) ($validated['daily_received_meters'] ?? 0);
         $adjustment = (float) ($validated['adjustment_meters'] ?? 0);
         $dispatch = (float) ($validated['dispatch_meters'] ?? 0);
+        if ($dispatch > 0) {
+            throw ValidationException::withMessages([
+                'dispatch_meters' => 'Dispatch fabric by selecting individual Thaans through Kachi Parchi or Own Manufacturing Sale.',
+            ]);
+        }
+        if ($adjustment !== 0.0 && blank($validated['notes'] ?? null)) {
+            throw ValidationException::withMessages([
+                'notes' => 'Enter a reason for every manual fabric stock adjustment.',
+            ]);
+        }
         $stock = DB::transaction(function () use ($validated, $isNew, $received, $adjustment, $dispatch, $weightCalculator): FabricStock {
             if ($isNew) {
                 $read = (float) $validated['read'];
@@ -165,7 +188,12 @@ class FabricStockController extends Controller
                 $dispatch += (float) $existingMovement->dispatch_meters;
             }
 
-            $closingStock = $previousStock + $received + $adjustment - $dispatch;
+            $returned = (float) ($existingMovement?->returned_meters ?? 0);
+            $closingStock = $previousStock + $received + $returned + $adjustment - $dispatch;
+            $movementRemarks = collect([$existingMovement?->remarks, $validated['notes'] ?? null])
+                ->filter(fn (?string $remark): bool => filled($remark))
+                ->unique()
+                ->implode('; ');
             if ($closingStock < 0) {
                 throw ValidationException::withMessages([
                     'dispatch_meters' => 'Dispatch cannot exceed the available fabric stock.',
@@ -182,7 +210,7 @@ class FabricStockController extends Controller
                     'closing_stock_meters' => $closingStock,
                     'rolls_received' => (int) ($validated['rolls_received'] ?? 0) + (int) ($existingMovement?->rolls_received ?? 0),
                     'area' => $validated['area'] ?? $stock->area,
-                    'remarks' => $validated['notes'] ?? null,
+                    'remarks' => $movementRemarks !== '' ? $movementRemarks : null,
                 ]
             );
 

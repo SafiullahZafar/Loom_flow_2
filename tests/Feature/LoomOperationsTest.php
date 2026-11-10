@@ -981,4 +981,45 @@ class LoomOperationsTest extends TestCase
             'source_role' => 'cost_of_goods_sold', 'debit' => 1234.57,
         ]);
     }
+
+    public function test_fabric_stock_adjustments_require_a_reason_and_manual_dispatch_is_blocked(): void
+    {
+        $fabric = FabricStock::create([
+            'quality_name' => 'Reconciliation Fabric', 'construction' => '90x66', 'width_inches' => 63.5,
+            'current_stock_meters' => 100, 'available_open_meters' => 100,
+        ]);
+        $order = WorkOrder::create([
+            'order_no' => 'RECON-ORDER', 'type' => 'own', 'fabric_stock_id' => $fabric->id,
+            'start_date' => now()->toDateString(), 'warp_supply' => 'factory', 'weft_supply' => 'factory',
+        ]);
+        ThaanRoll::create([
+            'roll_no' => 'RECON-TH-1', 'work_order_id' => $order->id,
+            'fabric_stock_id' => $fabric->id, 'loom_no' => 'Loom-01',
+            'checked_on' => now()->toDateString(), 'length_meters' => 60,
+            'grade' => 'A', 'status' => 'ready', 'owner_type' => 'factory',
+        ]);
+
+        $this->actingAs($this->user)->post(route('fabric.store'), [
+            'quality_mode' => 'existing', 'fabric_stock_id' => $fabric->id,
+            'dispatch_meters' => 20,
+        ])->assertSessionHasErrors('dispatch_meters');
+        $this->assertSame(100.0, (float) $fabric->fresh()->current_stock_meters);
+
+        $this->actingAs($this->user)->post(route('fabric.store'), [
+            'quality_mode' => 'existing', 'fabric_stock_id' => $fabric->id,
+            'adjustment_meters' => 5,
+        ])->assertSessionHasErrors('notes');
+        $this->assertSame(100.0, (float) $fabric->fresh()->current_stock_meters);
+
+        $this->actingAs($this->user)->post(route('fabric.store'), [
+            'quality_mode' => 'existing', 'fabric_stock_id' => $fabric->id,
+            'adjustment_meters' => 5, 'notes' => 'Physical recount correction',
+        ])->assertRedirect(route('fabric.index'))->assertSessionHasNoErrors();
+        $this->assertSame(105.0, (float) $fabric->fresh()->current_stock_meters);
+
+        $this->actingAs($this->user)->get(route('fabric.inventory'))
+            ->assertOk()->assertSee('Fabric Stock vs. Ready Thaan Reconciliation')
+            ->assertSee('Reconciliation Fabric')->assertSee('105.00')->assertSee('60.00')
+            ->assertSee('45.00')->assertSee('Review required');
+    }
 }
