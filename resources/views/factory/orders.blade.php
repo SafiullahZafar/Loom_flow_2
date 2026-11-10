@@ -389,7 +389,7 @@
     <section class="card p-6 space-y-4 shadow-2xs" id="yarn">
         <div class="pb-3 border-b border-[#e2e8e0]">
             <h2 class="text-base font-extrabold text-[#133e2b]">Sutar / Taana / Baana Movement Khata</h2>
-            <p class="text-xs text-stone-500">Record customer- or factory-supplied yarn per order. Actual weight is used, not an assumed bag size. This order khata does not itself post a supplier purchase or payment.</p>
+            <p class="text-xs text-stone-500">Record customer yarn and order adjustments here. For factory yarn, enter the issue or return once in Bags and link it to this order with its measured kg; the order khata is updated automatically.</p>
         </div>
 
         <form method="POST" action="{{ route('factory.yarn') }}" class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
@@ -415,7 +415,7 @@
                 Owner
                 <select name="owner_type" class="mt-1 border border-[#e2e8e0] rounded-xl p-2.5 text-xs w-full bg-white">
                     <option value="customer">Customer</option>
-                    <option value="factory">Factory</option>
+                    <option value="factory">Factory (receipts / adjustments)</option>
                 </select>
             </label>
 

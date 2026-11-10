@@ -608,6 +608,28 @@
                 <input type="text" name="party_name" required placeholder="e.g. Master Aslam" class="w-full bg-zinc-50 border border-zinc-300 rounded-xl px-3 py-2 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-500">
             </div>
             <div>
+                <label class="block text-xs font-semibold text-zinc-600 mb-1">Link to Work Order (optional)</label>
+                <select name="work_order_id" id="issueWorkOrder" class="w-full bg-zinc-50 border border-zinc-300 rounded-xl px-3 py-2 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-500">
+                    <option value="">General factory issue (no order khata)</option>
+                    @foreach($activeWorkOrders as $workOrder)
+                        <option value="{{ $workOrder->id }}">{{ $workOrder->order_no }} · {{ $workOrder->party_name ?? 'Factory' }}</option>
+                    @endforeach
+                </select>
+                <p class="mt-1 text-[10px] text-zinc-500">Select an order to create its yarn issue automatically. Enter the actual measured weight below.</p>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <label class="block text-xs font-semibold text-zinc-600">Order component
+                    <select name="component" id="issueComponent" class="w-full mt-1 bg-zinc-50 border border-zinc-300 rounded-xl px-3 py-2 text-sm text-zinc-900">
+                        <option value="">Select when linking order</option>
+                        <option value="warp">Taana / Warp</option>
+                        <option value="weft">Baana / Weft</option>
+                    </select>
+                </label>
+                <label class="block text-xs font-semibold text-zinc-600">Measured net weight (kg)
+                    <input type="number" name="net_weight_kg" min=".001" step=".001" class="w-full mt-1 bg-zinc-50 border border-zinc-300 rounded-xl px-3 py-2 text-sm text-zinc-900" placeholder="Required for order link">
+                </label>
+            </div>
+            <div>
                 <label class="block text-xs font-semibold text-zinc-600 mb-1">Remarks</label>
                 <input type="text" name="notes" placeholder="e.g. Lot for beam set 4" class="w-full bg-zinc-50 border border-zinc-300 rounded-xl px-3 py-2 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-500">
             </div>

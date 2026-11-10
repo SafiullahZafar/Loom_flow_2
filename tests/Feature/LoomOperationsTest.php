@@ -7,13 +7,14 @@ use App\Models\Customer;
 use App\Models\FabricStock;
 use App\Models\FinancialAccount;
 use App\Models\Invoice;
+use App\Models\LoomAssignment;
 use App\Models\Part;
 use App\Models\Production;
-use App\Models\WorkOrder;
-use App\Models\LoomAssignment;
 use App\Models\SizingBeam;
 use App\Models\SizingSlip;
 use App\Models\User;
+use App\Models\WorkOrder;
+use App\Models\YarnMovement;
 use App\Models\YarnQuality;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -484,6 +485,55 @@ class LoomOperationsTest extends TestCase
             'transaction_date' => now()->toDateString(),
         ])->assertRedirect();
         $this->assertSame(3.0, (float) BagTransaction::where('transaction_type', 'return_from_sizing')->sum('quantity_bags'));
+    }
+
+    public function test_factory_bag_issue_links_to_order_yarn_khata_and_return_reverses_kg(): void
+    {
+        BagTransaction::create([
+            'transaction_type' => 'purchase_factory', 'reference_no' => 'CH-LINKED-YARN',
+            'quality' => '30/1 PC Combed', 'quantity_bags' => 10, 'source' => 'Supplier',
+            'destination' => 'Factory Yarn Store', 'transaction_date' => now()->toDateString(),
+        ]);
+        $fabric = FabricStock::create([
+            'quality_name' => 'Linked Yarn Test', 'construction' => '90x66', 'width_inches' => 63.5,
+        ]);
+        $order = WorkOrder::create([
+            'order_no' => 'ORDER-LINKED-YARN', 'type' => 'own', 'fabric_stock_id' => $fabric->id,
+            'start_date' => now()->toDateString(), 'warp_supply' => 'factory', 'weft_supply' => 'factory',
+        ]);
+
+        $this->actingAs($this->user)->post(route('bags.issue'), [
+            'reference_no' => 'ISS-LINKED-YARN', 'quality' => '30/1 PC Combed', 'quantity_bags' => 2.5,
+            'destination' => 'Test Sizing Mill', 'party_name' => 'Test Sizer',
+            'transaction_date' => now()->toDateString(), 'work_order_id' => $order->id,
+            'component' => 'warp', 'net_weight_kg' => 82.75,
+        ])->assertRedirect(route('bags.index'))->assertSessionHasNoErrors();
+
+        $issue = BagTransaction::where('reference_no', 'ISS-LINKED-YARN')->firstOrFail();
+        $this->assertSame((int) $order->id, (int) $issue->work_order_id);
+        $this->assertSame(82.75, (float) $issue->net_weight_kg);
+        $this->assertDatabaseHas('yarn_movements', [
+            'work_order_id' => $order->id, 'component' => 'warp', 'owner_type' => 'factory',
+            'movement_type' => 'issue', 'weight_kg' => 82.75, 'bags' => 2.5,
+            'reference_no' => 'ISS-LINKED-YARN',
+        ]);
+
+        $this->actingAs($this->user)->post(route('bags.return'), [
+            'reference_no' => 'ISS-LINKED-YARN', 'quality' => '30/1 PC Combed', 'quantity_bags' => 1,
+            'source' => 'Test Sizing Mill', 'party_name' => 'Test Sizer', 'transaction_date' => now()->toDateString(),
+        ])->assertRedirect(route('bags.index'))->assertSessionHasNoErrors();
+
+        $this->assertDatabaseHas('yarn_movements', [
+            'work_order_id' => $order->id, 'component' => 'warp', 'owner_type' => 'factory',
+            'movement_type' => 'return', 'weight_kg' => 33.1, 'bags' => 1,
+            'reference_no' => 'ISS-LINKED-YARN-RETURN-3',
+        ]);
+        $this->assertSame(49.65, (float) YarnMovement::where('work_order_id', $order->id)
+            ->where('component', 'warp')->whereIn('movement_type', ['issue', 'return'])
+            ->selectRaw('SUM(CASE WHEN movement_type = "issue" THEN weight_kg ELSE -weight_kg END) as balance_kg')
+            ->value('balance_kg'));
+        $this->actingAs($this->user)->get(route('factory.reports'))
+            ->assertOk()->assertSee('Taana 49.65 / Baana 0.00');
     }
 
     public function test_sizing_slip_records_unaccounted_bags_instead_of_blocking_the_slip(): void

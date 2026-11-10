@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\BagPurchase;
 use App\Models\BagTransaction;
 use App\Models\SizingSlip;
+use App\Models\WorkOrder;
+use App\Models\YarnMovement;
 use App\Models\YarnQuality;
 use App\Services\LedgerPostingService;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -12,6 +14,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class BagController extends Controller
@@ -103,6 +106,7 @@ class BagController extends Controller
         // Total Yarn Investment
         $totalYarnInvestment = BagPurchase::sum('total_amount');
         $yarnQualities = YarnQuality::orderBy('name')->get();
+        $activeWorkOrders = WorkOrder::whereIn('status', ['active', 'fulfilled'])->orderByDesc('id')->get();
 
         return view('bags.index', compact(
             'page',
@@ -118,7 +122,7 @@ class BagController extends Controller
             'unusedBagsReturned',
             'unusedBagsHeldWithSizing',
             'totalYarnInvestment',
-            'yarnQualities', 'qualityBalances'
+            'yarnQualities', 'qualityBalances', 'activeWorkOrders'
         ));
     }
 
@@ -215,11 +219,36 @@ class BagController extends Controller
             'destination' => 'required|string|max:150',
             'party_name' => 'required|string|max:150',
             'transaction_date' => 'required|date',
+            'work_order_id' => 'nullable|exists:work_orders,id',
+            'component' => 'nullable|in:warp,weft',
+            'net_weight_kg' => 'nullable|numeric|gt:0',
             'notes' => 'nullable|string',
         ]);
 
+        if (isset($validated['work_order_id']) && (empty($validated['component']) || empty($validated['net_weight_kg']))) {
+            throw ValidationException::withMessages([
+                'net_weight_kg' => 'Choose the Taana/Baana component and enter the measured kg when linking an order.',
+            ]);
+        }
+
         $issued = DB::transaction(function () use ($validated): bool {
             YarnQuality::where('name', $validated['quality'])->lockForUpdate()->firstOrFail();
+            $order = isset($validated['work_order_id'])
+                ? WorkOrder::whereKey($validated['work_order_id'])->lockForUpdate()->firstOrFail()
+                : null;
+            if ($order !== null) {
+                $supply = $validated['component'] === 'warp' ? $order->warp_supply : $order->weft_supply;
+                if ($order->status === 'closed') {
+                    throw ValidationException::withMessages([
+                        'work_order_id' => 'Yarn cannot be issued to a closed order.',
+                    ]);
+                }
+                if ($supply === 'customer') {
+                    throw ValidationException::withMessages([
+                        'work_order_id' => 'This order component is customer supplied. Choose a factory or mixed-supply component.',
+                    ]);
+                }
+            }
 
             $factoryReceived = BagTransaction::where('quality', $validated['quality'])
                 ->where('transaction_type', 'purchase_factory')
@@ -238,7 +267,28 @@ class BagController extends Controller
 
             $validated['transaction_type'] = 'issue_to_sizing';
             $validated['source'] = 'Factory Yarn Store';
-            BagTransaction::create($validated);
+            $bagTransaction = BagTransaction::create([
+                ...$validated,
+                'owner_type' => 'factory',
+                'net_weight_kg' => $validated['net_weight_kg'] ?? null,
+            ]);
+            if ($order !== null) {
+                YarnMovement::create([
+                    'work_order_id' => $order->id,
+                    'component' => $validated['component'],
+                    'owner_type' => 'factory',
+                    'movement_type' => 'issue',
+                    'weight_kg' => $validated['net_weight_kg'],
+                    'bags' => $validated['quantity_bags'],
+                    'yarn_count' => $validated['quality'],
+                    'lot_no' => $validated['reference_no'],
+                    'reference_no' => $validated['reference_no'],
+                    'movement_date' => $validated['transaction_date'],
+                    'notes' => trim('Bag issue #'.$bagTransaction->id.' to '.$validated['destination'].'. '.($validated['notes'] ?? '')),
+                    'destination_type' => 'sizing',
+                    'destination_name' => $validated['destination'],
+                ]);
+            }
 
             return true;
         });
@@ -292,12 +342,42 @@ class BagController extends Controller
                 return false;
             }
 
-            BagTransaction::create([
+            $returnTransaction = BagTransaction::create([
                 ...$validated,
                 'reference_no' => $issue->reference_no,
                 'transaction_type' => 'return_from_sizing',
                 'destination' => 'Factory Yarn Store',
+                'work_order_id' => $issue->work_order_id,
+                'owner_type' => $issue->owner_type,
+                'net_weight_kg' => $issue->net_weight_kg !== null
+                    ? round((float) $issue->net_weight_kg * ((float) $validated['quantity_bags'] / (float) $issue->quantity_bags), 3)
+                    : null,
             ]);
+            if ($issue->work_order_id !== null && $issue->net_weight_kg !== null) {
+                $movement = YarnMovement::where('work_order_id', $issue->work_order_id)
+                    ->where('reference_no', $issue->reference_no)
+                    ->where('owner_type', 'factory')
+                    ->where('movement_type', 'issue')
+                    ->lockForUpdate()
+                    ->first();
+                if ($movement !== null) {
+                    YarnMovement::create([
+                        'work_order_id' => $issue->work_order_id,
+                        'component' => $movement->component,
+                        'owner_type' => 'factory',
+                        'movement_type' => 'return',
+                        'weight_kg' => $returnTransaction->net_weight_kg,
+                        'bags' => $returnTransaction->quantity_bags,
+                        'yarn_count' => $issue->quality,
+                        'lot_no' => $issue->reference_no,
+                        'reference_no' => $issue->reference_no.'-RETURN-'.$returnTransaction->id,
+                        'movement_date' => $validated['transaction_date'],
+                        'notes' => 'Return against bag issue #'.$issue->id.'. '.($validated['notes'] ?? ''),
+                        'destination_type' => 'factory_store',
+                        'destination_name' => 'Factory Yarn Store',
+                    ]);
+                }
+            }
 
             return true;
         });

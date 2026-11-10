@@ -192,6 +192,11 @@ class FactoryOrderController extends Controller
         DB::transaction(function () use ($data): void {
             $order = WorkOrder::findOrFail($data['work_order_id']);
             $supply = $data['component'] === 'warp' ? $order->warp_supply : $order->weft_supply;
+            if ($data['owner_type'] === 'factory' && in_array($data['movement_type'], ['issue', 'return'], true)) {
+                throw ValidationException::withMessages([
+                    'movement_type' => 'Record factory yarn issues and returns in Bags. Link the bag transaction to this order there so kg and stock stay synchronized.',
+                ]);
+            }
             if ($order->type === 'own' && $data['owner_type'] === 'customer') {
                 throw ValidationException::withMessages(['owner_type' => 'Own production uses factory yarn.']);
             }

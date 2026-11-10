@@ -28,10 +28,16 @@ class FactoryReportController extends Controller
             $billed = (float) PakkiParchi::whereHas('kachi', fn ($q) => $q->where('work_order_id', $order->id))->sum('bill_amount');
             $taana = (float) $order->parta?->warp_lb_per_meter * $checked;
             $baana = (float) $order->parta?->weft_lb_per_meter * $checked;
-            $issuedTaana = (float) YarnMovement::where('work_order_id', $order->id)->where('component', 'warp')->where('movement_type', 'issue')->sum('weight_kg');
-            $issuedBaana = (float) YarnMovement::where('work_order_id', $order->id)->where('component', 'weft')->where('movement_type', 'issue')->sum('weight_kg');
+            $issuedTaana = (float) YarnMovement::where('work_order_id', $order->id)->where('component', 'warp')
+                ->selectRaw('COALESCE(SUM(CASE WHEN movement_type IN (?, ?) THEN weight_kg WHEN movement_type IN (?, ?) THEN -weight_kg ELSE 0 END), 0) as net_weight_kg', ['issue', 'adjustment_out', 'return', 'adjustment_in'])
+                ->value('net_weight_kg');
+            $issuedBaana = (float) YarnMovement::where('work_order_id', $order->id)->where('component', 'weft')
+                ->selectRaw('COALESCE(SUM(CASE WHEN movement_type IN (?, ?) THEN weight_kg WHEN movement_type IN (?, ?) THEN -weight_kg ELSE 0 END), 0) as net_weight_kg', ['issue', 'adjustment_out', 'return', 'adjustment_in'])
+                ->value('net_weight_kg');
+
             return compact('order', 'meterOutput', 'checked', 'dispatched', 'accepted', 'billed', 'taana', 'baana', 'issuedTaana', 'issuedBaana');
         });
+
         return view('factory.reports', [
             'rows' => $rows, 'orders' => $orders,
             'wages' => FactoryWorkerWage::with('order')->latest('wage_date')->limit(40)->get(),
@@ -55,6 +61,7 @@ class FactoryReportController extends Controller
             return back()->withErrors(['paid_amount' => 'Paid plus advance cannot exceed calculated earnings.'])->withInput();
         }
         FactoryWorkerWage::create([...$data, 'gross_amount' => $gross, 'balance_amount' => $balance]);
+
         return back()->with('success', 'Mazdoor Khata saved. Payments here are informational: record cash/bank movement separately in Expenses to avoid double posting.');
     }
 
@@ -68,6 +75,7 @@ class FactoryReportController extends Controller
             'notes' => 'nullable|string|max:1000',
         ]);
         LoomStoppage::create($data);
+
         return back()->with('success', 'Machine downtime recorded. Repairs paid from cash/bank should be entered in Expenses.');
     }
 }
