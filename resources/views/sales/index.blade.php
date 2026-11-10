@@ -501,7 +501,7 @@
                         class="w-full bg-zinc-50 border border-zinc-400 rounded-xl px-3 py-2 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-600">
                     <option value="">— Choose Contract —</option>
                     @foreach($contractOptions as $c)
-                        <option value="{{ $c->id }}" data-buyer="{{ $c->buyer_name }}" data-phone="{{ $c->buyer_phone }}"
+                        <option value="{{ $c->id }}" data-buyer="{{ $c->buyer_name }}" data-phone="{{ $c->buyer_phone }}" data-customer-id="{{ $c->customer_id }}"
                                 data-stock-id="{{ $c->fabric_stock_id }}" data-rate="{{ $c->rate_per_meter }}"
                                 data-remaining="{{ $c->remaining_meters }}">
                             {{ $c->contract_no }} — {{ $c->buyer_name }} ({{ $c->fabric_quality }}) — Remaining: {{ number_format($c->remaining_meters) }}m @ Rs.{{ $c->rate_per_meter }}
@@ -511,14 +511,13 @@
             </div>
             <div class="grid grid-cols-2 gap-4">
                 <div>
-                    <label class="block text-xs font-semibold text-zinc-600 mb-1">Buyer / Party Name *</label>
-                    <input type="text" id="inpBuyerName" name="buyer_name" required placeholder="e.g. Haji Cloth Merchant"
-                           class="w-full bg-zinc-50 border border-zinc-300 rounded-xl px-3 py-2 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-500">
-                </div>
-                <div>
-                    <label class="block text-xs font-semibold text-zinc-600 mb-1">Buyer Phone</label>
-                    <input type="text" id="inpBuyerPhone" name="buyer_phone" placeholder="e.g. +92 300 1234567"
-                           class="w-full bg-zinc-50 border border-zinc-300 rounded-xl px-3 py-2 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-500">
+                    <label class="block text-xs font-semibold text-zinc-600 mb-1">Customer *</label>
+                    <select id="inpCustomer" name="customer_id" required class="w-full bg-zinc-50 border border-zinc-300 rounded-xl px-3 py-2 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-500">
+                        <option value="">Choose customer</option>
+                        @foreach($customers as $customer)
+                            <option value="{{ $customer->id }}" @selected(old('customer_id') == $customer->id)>{{ $customer->name }}{{ $customer->phone ? ' · '.$customer->phone : '' }}</option>
+                        @endforeach
+                    </select>
                 </div>
             </div>
             <div>
@@ -613,7 +612,7 @@
         </div>
         <form action="{{ route('sales.contract.store') }}" method="POST" class="space-y-6 px-5 py-5 sm:px-6">
             @csrf
-            @if($errors->hasAny(['contract_no', 'party_contract_no', 'contract_type', 'loom_type', 'buyer_code', 'buyer_name', 'buyer_phone', 'buyer_gst', 'fabric_stock_id', 'fabric_quality', 'quality_code', 'contract_quality', 'contract_quality_width', 'panna', 'total_meters', 'read', 'pick', 'warp_count', 'weft_count', 'width', 'yarn_warp_rate', 'yarn_weft_rate', 'conversion_rate', 'broker_code', 'broker_name', 'broker_commission_per_meter', 'kp_percentage', 'kp_days', 'pp_percentage', 'pp_days', 'start_date', 'end_date', 'delivery_instructions', 'payment_instructions', 'quality_instructions', 'other_instructions', 'notes']) )
+            @if($errors->hasAny(['contract_no', 'party_contract_no', 'contract_type', 'loom_type', 'buyer_code', 'customer_id', 'buyer_name', 'buyer_phone', 'buyer_gst', 'fabric_stock_id', 'fabric_quality', 'quality_code', 'contract_quality', 'contract_quality_width', 'panna', 'total_meters', 'read', 'pick', 'warp_count', 'weft_count', 'width', 'yarn_warp_rate', 'yarn_weft_rate', 'conversion_rate', 'broker_code', 'broker_name', 'broker_commission_per_meter', 'kp_percentage', 'kp_days', 'pp_percentage', 'pp_days', 'start_date', 'end_date', 'delivery_instructions', 'payment_instructions', 'quality_instructions', 'other_instructions', 'notes']) )
                 <div class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs text-red-700" role="alert">
                     @foreach($errors->all() as $error)<p>{{ $error }}</p>@endforeach
                 </div>
@@ -634,9 +633,8 @@
             <section>
                 <h4 class="mb-3 text-xs font-extrabold uppercase tracking-wider text-zinc-500">Buyer and broker</h4>
                 <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                    <label class="text-xs font-semibold text-zinc-600">Buyer Name *<input name="buyer_name" required maxlength="150" value="{{ old('buyer_name') }}" placeholder="Buyer / mill" class="mt-1 w-full rounded-xl border border-zinc-300 bg-zinc-50 px-3 py-2 text-sm text-zinc-900"></label>
+                    <label class="text-xs font-semibold text-zinc-600">Customer *<select name="customer_id" required class="mt-1 w-full rounded-xl border border-zinc-300 bg-zinc-50 px-3 py-2 text-sm text-zinc-900"><option value="">Choose customer</option>@foreach($customers as $customer)<option value="{{ $customer->id }}" @selected(old('customer_id') == $customer->id)>{{ $customer->name }}{{ $customer->phone ? ' · '.$customer->phone : '' }}</option>@endforeach</select></label>
                     <label class="text-xs font-semibold text-zinc-600">Buyer Code<input name="buyer_code" maxlength="40" value="{{ old('buyer_code') }}" class="mt-1 w-full rounded-xl border border-zinc-300 bg-zinc-50 px-3 py-2 text-sm text-zinc-900"></label>
-                    <label class="text-xs font-semibold text-zinc-600">Buyer Phone<input name="buyer_phone" maxlength="50" value="{{ old('buyer_phone') }}" class="mt-1 w-full rounded-xl border border-zinc-300 bg-zinc-50 px-3 py-2 text-sm text-zinc-900"></label>
                     <label class="text-xs font-semibold text-zinc-600">GST / Tax #<input name="buyer_gst" maxlength="60" value="{{ old('buyer_gst') }}" class="mt-1 w-full rounded-xl border border-zinc-300 bg-zinc-50 px-3 py-2 text-sm text-zinc-900"></label>
                     <label class="text-xs font-semibold text-zinc-600">Broker Name<input name="broker_name" maxlength="120" value="{{ old('broker_name') }}" class="mt-1 w-full rounded-xl border border-zinc-300 bg-zinc-50 px-3 py-2 text-sm text-zinc-900"></label>
                     <label class="text-xs font-semibold text-zinc-600">Broker Code<input name="broker_code" maxlength="40" value="{{ old('broker_code') }}" class="mt-1 w-full rounded-xl border border-zinc-300 bg-zinc-50 px-3 py-2 text-sm text-zinc-900"></label>
@@ -735,8 +733,7 @@
         const select = document.getElementById('selectContract');
         const opt = select.options[select.selectedIndex];
         if (opt && opt.value) {
-            document.getElementById('inpBuyerName').value = opt.dataset.buyer || '';
-            document.getElementById('inpBuyerPhone').value = opt.dataset.phone || '';
+            document.getElementById('inpCustomer').value = opt.dataset.customerId || '';
             document.getElementById('inpSaleRate').value = opt.dataset.rate || '';
             document.getElementById('selectFabricQuality').value = opt.dataset.stockId || '';
             calculateSaleNet();

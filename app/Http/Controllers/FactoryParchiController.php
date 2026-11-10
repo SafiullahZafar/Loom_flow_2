@@ -26,10 +26,11 @@ class FactoryParchiController extends Controller
     public function index(): View
     {
         return view('factory.dispatch', [
-            'jobOrders' => WorkOrder::with(['fabricStock', 'parta'])->where('type', 'job')->whereIn('status', ['active', 'fulfilled'])->orderBy('order_no')->get(),
-            'allJobOrders' => WorkOrder::where('type', 'job')->orderBy('order_no')->get(),
+            'jobOrders' => WorkOrder::with(['fabricStock', 'parta', 'customer'])->where('type', 'job')->whereIn('status', ['active', 'fulfilled'])->orderBy('order_no')->get(),
+            'customers' => Customer::where('status', 'active')->orderBy('name')->get(),
+            'allJobOrders' => WorkOrder::with('customer')->where('type', 'job')->orderBy('order_no')->get(),
             'rolls' => ThaanRoll::with('order')->whereIn('status', ['ready', 'returned_ready', 'returned_hold', 'dispatched'])->orderByDesc('id')->get(),
-            'kachis' => KachiParchi::with(['order.fabricStock', 'items.roll', 'pakki', 'returns'])->latest('id')->paginate(30),
+            'kachis' => KachiParchi::with(['order.fabricStock', 'order.customer', 'items.roll', 'pakki', 'returns'])->latest('id')->paginate(30),
             'pakkis' => PakkiParchi::with('kachi.order')->latest('id')->limit(20)->get(),
             'returns' => ThaanReturn::with('roll')->latest('id')->limit(25)->get(),
             'pendingKachis' => KachiParchi::with('order')->whereDoesntHave('pakki')->orderByDesc('id')->get(),
@@ -51,6 +52,9 @@ class FactoryParchiController extends Controller
             $order = WorkOrder::with('fabricStock')->whereKey($data['work_order_id'])->lockForUpdate()->firstOrFail();
             if ($order->type !== 'job' || ! in_array($order->status, ['active', 'fulfilled'], true)) {
                 throw ValidationException::withMessages(['work_order_id' => 'Choose an open job-work order.']);
+            }
+            if (! $order->customer_id) {
+                throw ValidationException::withMessages(['work_order_id' => 'Link this work order to its registered customer before dispatching.']);
             }
             $rolls = ThaanRoll::whereIn('id', $data['roll_ids'])->lockForUpdate()->get();
             if ($rolls->count() !== count($data['roll_ids']) || $rolls->contains(fn ($r): bool => (int) $r->work_order_id !== (int) $order->id || ! in_array($r->status, ['ready', 'returned_ready'], true))) {
@@ -110,8 +114,10 @@ class FactoryParchiController extends Controller
             $bill = round($accepted * $unitRate, 2);
             $invoice = null;
             if ($accepted > 0) {
-                $customer = Customer::whereRaw('LOWER(name) = ?', [mb_strtolower(trim((string) $order->party_name))])->first();
-                $customer ??= Customer::create(['name' => trim((string) $order->party_name), 'status' => 'active']);
+                $customer = Customer::find($order->customer_id);
+                if (! $customer) {
+                    throw ValidationException::withMessages(['kachi_parchi_id' => 'Link this work order to its customer before creating a weaving bill.']);
+                }
                 $invoice = Invoice::create([
                     'invoice_no' => 'JW-'.$data['parchi_no'], 'customer_id' => $customer->id,
                     'sales_contract_id' => $order->sales_contract_id, 'sale_id' => null,
@@ -124,7 +130,7 @@ class FactoryParchiController extends Controller
                 ]);
                 if ($bill > 0) {
                     $posting->post('invoice', $invoice->id, [
-                        ['role' => 'customer', 'party_name' => $customer->name, 'party_type' => 'fabric_buyer', 'transaction_date' => $data['received_date'], 'voucher_no' => $invoice->invoice_no, 'description' => 'Pakki accepted weaving bill', 'debit' => $bill, 'credit' => 0, 'notes' => null],
+                        ['role' => 'customer', 'customer_id' => $customer->id, 'party_name' => $customer->name, 'party_type' => 'fabric_buyer', 'transaction_date' => $data['received_date'], 'voucher_no' => $invoice->invoice_no, 'description' => 'Pakki accepted weaving bill', 'debit' => $bill, 'credit' => 0, 'notes' => null],
                         ['role' => 'revenue', 'party_name' => 'Job Work Revenue', 'party_type' => 'income', 'transaction_date' => $data['received_date'], 'voucher_no' => $invoice->invoice_no, 'description' => 'Pakki accepted weaving bill', 'debit' => 0, 'credit' => $bill, 'notes' => null],
                     ]);
                 }
@@ -212,7 +218,9 @@ class FactoryParchiController extends Controller
             $newOrder = null;
             if ($action === 'carry_forward') {
                 $newOrder = WorkOrder::findOrFail($data['to_work_order_id'] ?? 0);
-                if ($newOrder->type !== 'job' || $newOrder->status !== 'active' || $newOrder->party_name !== $oldOrder->party_name || (int) $newOrder->fabric_stock_id !== (int) $oldOrder->fabric_stock_id || $newOrder->id === $oldOrder->id) {
+                if ($newOrder->type !== 'job' || $newOrder->status !== 'active'
+                    || ! $oldOrder->customer_id || (int) $newOrder->customer_id !== (int) $oldOrder->customer_id
+                    || (int) $newOrder->fabric_stock_id !== (int) $oldOrder->fabric_stock_id || $newOrder->id === $oldOrder->id) {
                     throw ValidationException::withMessages(['to_work_order_id' => 'Carry forward only to another active contract for the same party and quality.']);
                 }
             }
@@ -252,7 +260,7 @@ class FactoryParchiController extends Controller
                 $voucher = 'THAAN-SETTLEMENT-'.$disposition->id;
                 $posting->post('thaan_disposition_settlement', $disposition->id, [
                     [
-                        'role' => 'customer', 'party_name' => $oldOrder->party_name, 'party_type' => 'fabric_buyer',
+                        'role' => 'customer', 'customer_id' => $oldOrder->customer_id, 'party_name' => $oldOrder->party_name, 'party_type' => 'fabric_buyer',
                         'transaction_date' => $data['action_date'], 'voucher_no' => $voucher, 'description' => $description,
                         'debit' => 0, 'credit' => $amount, 'notes' => $data['notes'] ?? null,
                     ],
@@ -287,10 +295,11 @@ class FactoryParchiController extends Controller
         $data = $request->validate([
             'slip_no' => 'required|string|max:100|unique:sales,slip_no',
             'roll_ids' => 'required|array|min:1|max:200', 'roll_ids.*' => 'required|integer|distinct|exists:thaan_rolls,id',
-            'buyer_name' => 'required|string|max:150', 'rate_per_meter' => 'required|numeric|min:0',
+            'customer_id' => 'required|exists:customers,id', 'rate_per_meter' => 'required|numeric|min:0',
             'sale_date' => 'required|date', 'notes' => 'nullable|string|max:1000',
         ]);
         DB::transaction(function () use ($data, $stock, $posting): void {
+            $customer = Customer::findOrFail($data['customer_id']);
             $rolls = ThaanRoll::with('order.parta')->whereIn('id', $data['roll_ids'])->lockForUpdate()->get();
             if ($rolls->count() !== count($data['roll_ids']) || $rolls->isEmpty() || $rolls->contains(fn ($r): bool => $r->status !== 'ready' || $r->owner_type !== 'factory')) {
                 throw ValidationException::withMessages(['roll_ids' => 'Choose available factory-owned A-category Thaans only.']);
@@ -306,7 +315,8 @@ class FactoryParchiController extends Controller
             $costPerMeter = $total > 0 ? round($costOfGoodsSold / $total, 4) : 0;
             $sale = Sale::create([
                 'slip_no' => $data['slip_no'], 'sale_type' => 'open_market',
-                'fabric_stock_id' => $fabric->id, 'buyer_name' => trim($data['buyer_name']),
+                'fabric_stock_id' => $fabric->id, 'customer_id' => $customer->id,
+                'buyer_name' => $customer->name, 'buyer_phone' => $customer->phone,
                 'fabric_quality' => $fabric->quality_name, 'meters_sold' => $total,
                 'rolls_sold' => $rolls->count(), 'rate_per_meter' => $data['rate_per_meter'],
                 'subtotal' => $amount, 'discount' => 0, 'net_total' => $amount,
@@ -319,7 +329,7 @@ class FactoryParchiController extends Controller
             }
             $stock->move($fabric, -$total, -$rolls->count(), $data['sale_date'], 'Own fabric sale '.$sale->slip_no);
             $lines = [
-                ['role' => 'buyer', 'party_name' => $sale->buyer_name, 'party_type' => 'fabric_buyer', 'transaction_date' => $sale->sale_date, 'voucher_no' => $sale->slip_no, 'description' => 'Own-fabric sale', 'debit' => $amount, 'credit' => 0, 'notes' => null],
+                ['role' => 'buyer', 'customer_id' => $sale->customer_id, 'party_name' => $sale->buyer_name, 'party_type' => 'fabric_buyer', 'transaction_date' => $sale->sale_date, 'voucher_no' => $sale->slip_no, 'description' => 'Own-fabric sale', 'debit' => $amount, 'credit' => 0, 'notes' => null],
                 ['role' => 'revenue', 'party_name' => 'Fabric Sales Revenue', 'party_type' => 'income', 'transaction_date' => $sale->sale_date, 'voucher_no' => $sale->slip_no, 'description' => 'Own-fabric sale', 'debit' => 0, 'credit' => $amount, 'notes' => null],
             ];
             $cost = (float) $sale->cost_of_goods_sold;

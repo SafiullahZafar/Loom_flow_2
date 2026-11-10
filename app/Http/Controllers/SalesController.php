@@ -14,6 +14,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class SalesController extends Controller
@@ -54,7 +55,8 @@ class SalesController extends Controller
         Collection|LengthAwarePaginator $sales,
         Collection|LengthAwarePaginator $contracts
     ): View {
-        $contractOptions = SalesContract::where('status', 'active')->latest('start_date')->get();
+        $contractOptions = SalesContract::with('customer')->where('status', 'active')->latest('start_date')->get();
+        $customers = Customer::where('status', 'active')->orderBy('name')->get();
         $fabrics = FabricStock::orderBy('quality_name')->get();
 
         // Metrics
@@ -73,6 +75,7 @@ class SalesController extends Controller
             'sales',
             'contracts',
             'contractOptions',
+            'customers',
             'fabrics',
             'totalSalesCount',
             'totalRevenue',
@@ -92,8 +95,7 @@ class SalesController extends Controller
             'sale_type' => 'required|in:open_market,contract',
             'sales_contract_id' => 'nullable|required_if:sale_type,contract|exists:sales_contracts,id',
             'fabric_stock_id' => 'required|exists:fabric_stocks,id',
-            'buyer_name' => 'required|string|max:150',
-            'buyer_phone' => 'nullable|string|max:50',
+            'customer_id' => 'required|exists:customers,id',
             'meters_sold' => 'required|numeric|min:1',
             'rolls_sold' => 'required|integer|min:1',
             'rate_per_meter' => 'required|numeric|min:0',
@@ -107,6 +109,7 @@ class SalesController extends Controller
 
         $sale = DB::transaction(function () use ($validated, $ledgerPostingService): Sale|false {
             $fabric = FabricStock::whereKey($validated['fabric_stock_id'])->lockForUpdate()->firstOrFail();
+            $customer = Customer::whereKey($validated['customer_id'])->lockForUpdate()->firstOrFail();
             $contract = null;
 
             if ($validated['sale_type'] === 'contract') {
@@ -114,6 +117,9 @@ class SalesController extends Controller
                     return false; // Managed job-work contracts dispatch only through Kachi and bill on Pakki.
                 }
                 $contract = SalesContract::whereKey($validated['sales_contract_id'])->lockForUpdate()->firstOrFail();
+                if ($contract->customer_id && (int) $contract->customer_id !== (int) $customer->id) {
+                    throw ValidationException::withMessages(['customer_id' => 'Choose the customer linked to the selected contract.']);
+                }
                 if ((int) $contract->fabric_stock_id !== (int) $fabric->id) {
                     return false;
                 }
@@ -127,8 +133,11 @@ class SalesController extends Controller
                     return false;
                 }
 
-                $validated['buyer_name'] = $contract->buyer_name;
-                $validated['buyer_phone'] = $contract->buyer_phone;
+                $contract->customer_id = $customer->id;
+                $contract->buyer_name = $customer->name;
+                $contract->buyer_phone = $customer->phone;
+                $validated['buyer_name'] = $customer->name;
+                $validated['buyer_phone'] = $customer->phone;
                 $validated['rate_per_meter'] = $contract->rate_per_meter;
                 $contract->delivered_meters += $validated['meters_sold'];
                 $contract->remaining_meters -= $validated['meters_sold'];
@@ -147,9 +156,12 @@ class SalesController extends Controller
                 }
 
                 $validated['sales_contract_id'] = null;
+                $validated['buyer_name'] = $customer->name;
+                $validated['buyer_phone'] = $customer->phone;
                 $fabric->available_open_meters -= $validated['meters_sold'];
             }
 
+            $validated['customer_id'] = $customer->id;
             $validated['fabric_quality'] = $fabric->quality_name;
             $validated['subtotal'] = $validated['meters_sold'] * $validated['rate_per_meter'];
             $validated['discount'] = $validated['discount'] ?? 0;
@@ -162,13 +174,13 @@ class SalesController extends Controller
             $fabric->save();
 
             $sale = Sale::create($validated);
-            $this->syncCustomer($sale->buyer_name, $sale->buyer_phone);
             $isPaid = $sale->payment_status === 'paid';
             $costOfGoodsSold = (float) $sale->cost_of_goods_sold;
             $ledgerLines = [
                 [
                     'role' => 'buyer',
                     'party_name' => $sale->buyer_name,
+                    'customer_id' => $sale->customer_id,
                     'party_type' => 'fabric_buyer',
                     'transaction_date' => $sale->sale_date,
                     'voucher_no' => $sale->slip_no,
@@ -245,8 +257,7 @@ class SalesController extends Controller
             'contract_type' => 'required|in:Conversion,Grey Sale',
             'loom_type' => 'nullable|string|max:40',
             'buyer_code' => 'nullable|string|max:40',
-            'buyer_name' => 'required|string|max:150',
-            'buyer_phone' => 'nullable|string|max:50',
+            'customer_id' => 'required|exists:customers,id',
             'buyer_gst' => 'nullable|string|max:60',
             'fabric_stock_id' => 'required|exists:fabric_stocks,id',
             'quality_code' => 'nullable|string|max:40',
@@ -280,6 +291,9 @@ class SalesController extends Controller
             'notes' => 'nullable|string|max:2000',
         ]);
 
+        $customer = Customer::findOrFail($validated['customer_id']);
+        $validated['buyer_name'] = $customer->name;
+        $validated['buyer_phone'] = $customer->phone;
         $fabric = FabricStock::findOrFail($validated['fabric_stock_id']);
         $validated['fabric_quality'] = $fabric->quality_name;
         $validated['tax_enabled'] = (bool) ($validated['tax_enabled'] ?? false);
@@ -302,7 +316,6 @@ class SalesController extends Controller
         $contract = DB::transaction(function () use ($validated): SalesContract {
             $fabric = FabricStock::whereKey($validated['fabric_stock_id'])->lockForUpdate()->firstOrFail();
             $contract = SalesContract::create($validated);
-            $this->syncCustomer($contract->buyer_name, $contract->buyer_phone);
             $activeContractMeters = SalesContract::where('fabric_stock_id', $fabric->id)
                 ->where('status', 'active')->where('contract_type', 'Grey Sale')
                 ->sum('remaining_meters');
@@ -323,28 +336,5 @@ class SalesController extends Controller
 
         return redirect()->route('sales.index')
             ->with('success', "Sales Contract {$contract->contract_no} for {$contract->buyer_name} ({$contract->total_meters}m) registered successfully!");
-    }
-
-    private function syncCustomer(string $name, ?string $phone): Customer
-    {
-        $normalizedName = mb_strtolower(trim($name));
-        $customer = Customer::query()->whereRaw('LOWER(name) = ?', [$normalizedName])->first();
-
-        if ($customer) {
-            $phone = filled($phone) ? trim($phone) : null;
-            if (! filled($customer->phone) && $phone && ! Customer::where('phone', $phone)->exists()) {
-                $customer->update(['phone' => $phone]);
-            }
-
-            return $customer;
-        }
-
-        $phone = filled($phone) && ! Customer::where('phone', trim($phone))->exists() ? trim($phone) : null;
-
-        return Customer::create([
-            'name' => trim($name),
-            'phone' => $phone,
-            'status' => 'active',
-        ]);
     }
 }

@@ -12,6 +12,7 @@ class WorkOrder extends Model
         'order_no',
         'type',
         'sales_contract_id',
+        'customer_id',
         'fabric_stock_id',
         'parta_record_id',
         'party_name',
@@ -35,6 +36,11 @@ class WorkOrder extends Model
     public function contract(): BelongsTo
     {
         return $this->belongsTo(SalesContract::class, 'sales_contract_id');
+    }
+
+    public function customer(): BelongsTo
+    {
+        return $this->belongsTo(Customer::class);
     }
 
     public function parta(): BelongsTo

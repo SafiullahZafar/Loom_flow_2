@@ -112,8 +112,13 @@
                             <input name="contract_no" placeholder="JC-001" class="mt-1 w-full border border-[#e2e8e0] rounded-xl p-2 text-xs">
                         </label>
                         <label class="text-xs font-bold text-stone-700">
-                            Customer / Party
-                            <input name="party_name" class="mt-1 w-full border border-[#e2e8e0] rounded-xl p-2 text-xs">
+                            Customer
+                            <select name="customer_id" class="mt-1 w-full border border-[#e2e8e0] rounded-xl p-2 text-xs bg-white">
+                                <option value="">Choose customer</option>
+                                @foreach($customers as $customer)
+                                    <option value="{{ $customer->id }}">{{ $customer->name }}{{ $customer->phone ? ' · '.$customer->phone : '' }}</option>
+                                @endforeach
+                            </select>
                         </label>
                     </div>
                     <label class="block text-xs font-bold text-stone-700">
@@ -183,7 +188,7 @@
                                 {{ $o->order_no }}
                                 <span class="block text-[10px] font-semibold text-stone-400">{{ strtoupper($o->type) }}</span>
                             </td>
-                            <td class="p-3 text-stone-700">{{ $o->party_name ?? 'Factory' }}</td>
+                            <td class="p-3 text-stone-700">{{ $o->customer?->name ?? $o->party_name ?? 'Factory' }}</td>
                             <td class="p-3 text-stone-700">{{ $o->fabricStock?->quality_name }}</td>
                             <td class="p-3 text-stone-700">{{ $o->target_meters ? number_format($o->target_meters, 0).'m' : 'Open target' }}</td>
                             <td class="p-3 font-semibold text-stone-800">{{ number_format((float) $o->accepted_meters, 2) }}m</td>

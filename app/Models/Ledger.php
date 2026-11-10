@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Ledger extends Model
 {
@@ -11,6 +12,7 @@ class Ledger extends Model
 
     protected $fillable = [
         'party_name',
+        'customer_id',
         'party_type',
         'transaction_date',
         'voucher_no',
@@ -26,9 +28,15 @@ class Ledger extends Model
     ];
 
     protected $casts = [
+        'customer_id' => 'integer',
         'transaction_date' => 'date',
         'debit' => 'decimal:2',
         'credit' => 'decimal:2',
         'balance' => 'decimal:2',
     ];
+
+    public function customer(): BelongsTo
+    {
+        return $this->belongsTo(Customer::class);
+    }
 }

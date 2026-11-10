@@ -39,7 +39,7 @@
                     <select name="work_order_id" class="w-full border border-[#e2e8e0] rounded-xl p-2.5 mt-1 text-xs bg-white focus:outline-none focus:border-[#133e2b] focus:ring-1 focus:ring-[#133e2b]" id="kachi-order" required>
                         <option value="">Choose order</option>
                         @foreach($jobOrders as $o)
-                            <option value="{{ $o->id }}">{{ $o->order_no }} &middot; {{ $o->party_name }} ({{ $o->fabricStock?->quality_name }})</option>
+                            <option value="{{ $o->id }}">{{ $o->order_no }} &middot; {{ $o->customer?->name ?? $o->party_name }} ({{ $o->fabricStock?->quality_name }})</option>
                         @endforeach
                     </select>
                 </label>
@@ -98,7 +98,7 @@
                         @foreach($pendingKachis as $k)
                             @if(!$k->pakki)
                                 <option value="{{ $k->id }}">
-                                    {{ $k->parchi_no }} &middot; {{ $k->order?->party_name }} &middot; {{ number_format((float)$k->dispatched_meters,0) }}m &middot; {{ $k->thaan_count }} Thaans
+                                    {{ $k->parchi_no }} &middot; {{ $k->order?->customer?->name ?? $k->order?->party_name }} &middot; {{ number_format((float)$k->dispatched_meters,0) }}m &middot; {{ $k->thaan_count }} Thaans
                                 </option>
                             @endif
                         @endforeach
@@ -227,7 +227,7 @@
                     <select name="to_work_order_id" class="w-full border border-[#e2e8e0] rounded-xl p-2.5 mt-1 text-xs bg-white">
                         <option value="">Not required</option>
                         @foreach($jobOrders as $o)
-                            <option value="{{ $o->id }}">{{ $o->order_no }} &middot; {{ $o->party_name }}</option>
+                            <option value="{{ $o->id }}">{{ $o->order_no }} &middot; {{ $o->customer?->name ?? $o->party_name }}</option>
                         @endforeach
                     </select>
                 </label>
@@ -273,8 +273,13 @@
                     <input required name="slip_no" placeholder="SL-001" class="w-full mt-1 border border-[#e2e8e0] rounded-xl p-2.5 text-xs focus:outline-none focus:border-[#133e2b]">
                 </label>
                 <label class="text-xs font-bold text-stone-700">
-                    Buyer
-                    <input required name="buyer_name" placeholder="Buyer / Market party" class="w-full mt-1 border border-[#e2e8e0] rounded-xl p-2.5 text-xs focus:outline-none focus:border-[#133e2b]">
+                    Customer
+                    <select required name="customer_id" class="w-full mt-1 border border-[#e2e8e0] rounded-xl p-2.5 text-xs bg-white focus:outline-none focus:border-[#133e2b]">
+                        <option value="">Choose customer</option>
+                        @foreach($customers as $customer)
+                            <option value="{{ $customer->id }}">{{ $customer->name }}{{ $customer->phone ? ' · '.$customer->phone : '' }}</option>
+                        @endforeach
+                    </select>
                 </label>
                 <label class="text-xs font-bold text-stone-700">
                     Rs per metre

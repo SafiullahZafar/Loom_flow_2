@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\BagTransaction;
 use App\Models\BeamEvent;
+use App\Models\Customer;
 use App\Models\FabricStock;
 use App\Models\Invoice;
 use App\Models\LoomAssignment;
@@ -31,10 +32,11 @@ class FactoryOrderController extends Controller
     {
         return view('factory.orders', [
             'fabrics' => FabricStock::orderBy('quality_name')->get(),
+            'customers' => Customer::where('status', 'active')->orderBy('name')->get(),
             'partas' => PartaRecord::with('fabricStock')->latest('id')->get()->unique('fabric_stock_id'),
-            'orders' => WorkOrder::with(['fabricStock', 'contract', 'parta'])->latest('id')->paginate(30),
+            'orders' => WorkOrder::with(['fabricStock', 'contract', 'parta', 'customer'])->latest('id')->paginate(30),
             'activeOrders' => WorkOrder::with('fabricStock')->whereIn('status', ['active', 'fulfilled'])->latest('id')->get(),
-            'existingContracts' => SalesContract::whereNotIn('id', WorkOrder::whereNotNull('sales_contract_id')->pluck('sales_contract_id'))->orderBy('contract_no')->get(),
+            'existingContracts' => SalesContract::with('customer')->whereNotIn('id', WorkOrder::whereNotNull('sales_contract_id')->pluck('sales_contract_id'))->orderBy('contract_no')->get(),
             'assignments' => LoomAssignment::with(['order.fabricStock'])->whereNull('end_date')->orderBy('loom_no')->get(),
             'beams' => SizingBeam::with('workOrder.contract')->whereNotIn('status', ['exhausted', 'returned_to_customer'])->orderBy('beam_no')->get(),
             'yarnBalances' => YarnMovement::selectRaw('work_order_id, component, owner_type, SUM(CASE WHEN movement_type IN (\'receipt\',\'return\',\'adjustment_in\') THEN weight_kg ELSE -weight_kg END) as balance_kg')->groupBy('work_order_id', 'component', 'owner_type')->get(),
@@ -64,7 +66,7 @@ class FactoryOrderController extends Controller
             'type' => 'required|in:own,job',
             'fabric_stock_id' => 'required|exists:fabric_stocks,id',
             'target_meters' => 'nullable|numeric|gt:0',
-            'party_name' => 'nullable|string|max:150',
+            'customer_id' => 'nullable|required_if:type,job|exists:customers,id',
             'existing_contract_id' => 'nullable|exists:sales_contracts,id',
             'contract_no' => 'nullable|string|max:100|unique:sales_contracts,contract_no',
             'rate_per_pick' => 'nullable|numeric|min:0',
@@ -95,16 +97,26 @@ class FactoryOrderController extends Controller
                     if ((int) $contract->fabric_stock_id !== (int) $fabric->id) {
                         throw ValidationException::withMessages(['existing_contract_id' => 'The contract quality does not match.']);
                     }
-                    $party = $contract->buyer_name;
+                    if ($contract->customer_id && (int) $contract->customer_id !== (int) $data['customer_id']) {
+                        throw ValidationException::withMessages(['customer_id' => 'Choose the customer linked to this contract.']);
+                    }
+                    $customer = Customer::findOrFail($data['customer_id']);
+                    $contract->customer_id ??= $customer->id;
+                    $contract->buyer_name = $customer->name;
+                    $contract->buyer_phone = $customer->phone;
+                    $contract->save();
+                    $party = $customer->name;
                     $target = (float) $contract->total_meters;
                     $rate = (float) $contract->conversion_rate;
                 } else {
-                    if (blank($data['party_name'] ?? null) || blank($data['contract_no'] ?? null) || ! $target) {
-                        throw ValidationException::withMessages(['party_name' => 'Job work requires a party, contract number and target quantity.']);
+                    if (blank($data['contract_no'] ?? null) || ! $target) {
+                        throw ValidationException::withMessages(['contract_no' => 'Job work requires a contract number and target quantity.']);
                     }
-                    $party = trim($data['party_name']);
+                    $customer = Customer::findOrFail($data['customer_id']);
+                    $party = $customer->name;
                     $contract = SalesContract::create([
-                        'contract_no' => $data['contract_no'], 'buyer_name' => $party,
+                        'contract_no' => $data['contract_no'], 'customer_id' => $customer->id,
+                        'buyer_name' => $party, 'buyer_phone' => $customer->phone,
                         'fabric_stock_id' => $fabric->id, 'fabric_quality' => $fabric->quality_name,
                         'contract_type' => 'Conversion', 'read' => $parta->read, 'pick' => $parta->pick,
                         'warp_count' => $parta->warp_count, 'weft_count' => $parta->weft_count,
@@ -122,7 +134,7 @@ class FactoryOrderController extends Controller
             WorkOrder::create([
                 'order_no' => $data['order_no'], 'type' => $data['type'],
                 'sales_contract_id' => $contract?->id, 'fabric_stock_id' => $fabric->id,
-                'parta_record_id' => $parta->id, 'party_name' => $party,
+                'customer_id' => $contract?->customer_id, 'parta_record_id' => $parta->id, 'party_name' => $party,
                 'target_meters' => $target, 'rate_per_pick' => $rate,
                 'warp_supply' => $data['type'] === 'own' ? 'factory' : $data['warp_supply'],
                 'weft_supply' => $data['type'] === 'own' ? 'factory' : $data['weft_supply'],
@@ -352,6 +364,7 @@ class FactoryOrderController extends Controller
                     'Customer yarn settlement for beam '.$beam->beam_no,
                     $settlement,
                     $data['notes'] ?? null,
+                    $oldOrder->customer_id,
                 );
             }
         });
@@ -372,10 +385,11 @@ class FactoryOrderController extends Controller
         string $description,
         float $amount,
         ?string $notes,
+        ?int $customerId,
     ): void {
         $ledgerPostingService->post($sourceType, $sourceId, [
             [
-                'role' => 'customer', 'party_name' => $customerName, 'party_type' => 'fabric_buyer',
+                'role' => 'customer', 'customer_id' => $customerId, 'party_name' => $customerName, 'party_type' => 'fabric_buyer',
                 'transaction_date' => $date, 'voucher_no' => $voucher, 'description' => $description,
                 'debit' => 0, 'credit' => $amount, 'notes' => $notes,
             ],
@@ -446,7 +460,7 @@ class FactoryOrderController extends Controller
 
     public function closing(WorkOrder $order): View
     {
-        $order->load(['fabricStock', 'parta', 'contract']);
+        $order->load(['fabricStock', 'parta', 'contract', 'customer']);
         $kachis = $order->kachis()->with('pakki')->get();
         $pakkiRows = PakkiParchi::with('invoice.allocations')
             ->whereHas('kachi', fn ($query) => $query->where('work_order_id', $order->id))

@@ -115,7 +115,7 @@ class InvoiceController extends Controller
         $customer = Customer::create($validated);
         if ((float) $customer->opening_balance > 0) {
             $ledgerPostingService->post('customer_opening_balance', $customer->id, [
-                ['role' => 'customer', 'party_name' => $customer->name, 'party_type' => 'fabric_buyer', 'transaction_date' => $customer->created_at->toDateString(), 'voucher_no' => 'OPEN-CUS-'.$customer->id, 'description' => 'Customer opening receivable balance', 'debit' => (float) $customer->opening_balance, 'credit' => 0, 'notes' => null],
+                ['role' => 'customer', 'customer_id' => $customer->id, 'party_name' => $customer->name, 'party_type' => 'fabric_buyer', 'transaction_date' => $customer->created_at->toDateString(), 'voucher_no' => 'OPEN-CUS-'.$customer->id, 'description' => 'Customer opening receivable balance', 'debit' => (float) $customer->opening_balance, 'credit' => 0, 'notes' => null],
                 ['role' => 'equity', 'party_name' => 'Opening Balance Equity', 'party_type' => 'equity', 'transaction_date' => $customer->created_at->toDateString(), 'voucher_no' => 'OPEN-CUS-'.$customer->id, 'description' => 'Opening customer balance', 'debit' => 0, 'credit' => (float) $customer->opening_balance, 'notes' => null],
             ]);
         }
@@ -152,21 +152,38 @@ class InvoiceController extends Controller
                 if (Invoice::where('sale_id', $sale->id)->exists()) {
                     throw ValidationException::withMessages(['sale_id' => 'This sales slip already has an invoice.']);
                 }
-                if (strcasecmp(trim($customer->name), trim($sale->buyer_name)) !== 0) {
-                    throw ValidationException::withMessages(['customer_id' => 'Choose the customer whose name matches the selected sales slip.']);
+                if ($sale->customer_id && (int) $sale->customer_id !== (int) $customer->id) {
+                    throw ValidationException::withMessages(['customer_id' => 'Choose the customer linked to the selected sales slip.']);
                 }
+                $sale->customer_id = $customer->id;
+                $sale->save();
                 if ($contract && (int) $sale->sales_contract_id !== (int) $contract->id) {
                     throw ValidationException::withMessages(['sales_contract_id' => 'The selected contract does not belong to this sales slip.']);
                 }
                 $contract ??= $sale->contract;
+                if ($contract && $contract->customer_id && (int) $contract->customer_id !== (int) $customer->id) {
+                    throw ValidationException::withMessages(['customer_id' => 'The sales slip and contract belong to a different customer.']);
+                }
+                if ($contract && ! $contract->customer_id) {
+                    $contract->customer_id = $customer->id;
+                    $contract->buyer_name = $customer->name;
+                    $contract->buyer_phone = $customer->phone;
+                    $contract->save();
+                }
                 $items[] = ['description' => $sale->fabric_quality.' fabric', 'quantity' => (float) $sale->meters_sold,
                     'unit' => 'Meter', 'rate' => (float) $sale->rate_per_meter, 'amount' => (float) $sale->subtotal];
                 $subtotal = (float) $sale->subtotal;
                 $discount = (float) $sale->discount;
                 $saleId = $sale->id;
             } else {
-                if ($contract && strcasecmp(trim($customer->name), trim($contract->buyer_name)) !== 0) {
-                    throw ValidationException::withMessages(['customer_id' => 'Choose the customer whose name matches the selected contract.']);
+                if ($contract && $contract->customer_id && (int) $contract->customer_id !== (int) $customer->id) {
+                    throw ValidationException::withMessages(['customer_id' => 'Choose the customer linked to the selected contract.']);
+                }
+                if ($contract && ! $contract->customer_id) {
+                    $contract->customer_id = $customer->id;
+                    $contract->buyer_name = $customer->name;
+                    $contract->buyer_phone = $customer->phone;
+                    $contract->save();
                 }
                 foreach ($validated['items'] as $item) {
                     $quantity = round((float) $item['quantity'], 3);
@@ -212,7 +229,7 @@ class InvoiceController extends Controller
 
             if ($saleId === null) {
                 $ledgerPostingService->post('invoice', $invoice->id, [
-                    ['role' => 'customer', 'party_name' => $customer->name, 'party_type' => 'fabric_buyer', 'transaction_date' => $invoice->invoice_date, 'voucher_no' => $invoice->invoice_no, 'description' => 'Invoice issued to customer', 'debit' => (float) $invoice->total, 'credit' => 0, 'notes' => $invoice->notes],
+                    ['role' => 'customer', 'customer_id' => $customer->id, 'party_name' => $customer->name, 'party_type' => 'fabric_buyer', 'transaction_date' => $invoice->invoice_date, 'voucher_no' => $invoice->invoice_no, 'description' => 'Invoice issued to customer', 'debit' => (float) $invoice->total, 'credit' => 0, 'notes' => $invoice->notes],
                     ['role' => 'revenue', 'party_name' => 'Fabric Sales Revenue', 'party_type' => 'income', 'transaction_date' => $invoice->invoice_date, 'voucher_no' => $invoice->invoice_no, 'description' => 'Revenue from customer invoice', 'debit' => 0, 'credit' => (float) $invoice->total, 'notes' => $invoice->notes],
                 ]);
             }
@@ -316,7 +333,7 @@ class InvoiceController extends Controller
             ]);
             $ledgerPostingService->post('payment_receipt', $payment->id, [
                 ['role' => 'account', 'party_name' => $account->name, 'party_type' => 'cash_bank', 'transaction_date' => $payment->payment_date, 'voucher_no' => $payment->receipt_no, 'description' => 'Customer payment received into '.$account->name, 'debit' => $amount, 'credit' => 0, 'notes' => $payment->notes],
-                ['role' => 'customer', 'party_name' => $customer->name, 'party_type' => 'fabric_buyer', 'transaction_date' => $payment->payment_date, 'voucher_no' => $payment->receipt_no, 'description' => 'Customer receipt applied / held as credit', 'debit' => 0, 'credit' => $amount, 'notes' => $payment->notes],
+                ['role' => 'customer', 'customer_id' => $customer->id, 'party_name' => $customer->name, 'party_type' => 'fabric_buyer', 'transaction_date' => $payment->payment_date, 'voucher_no' => $payment->receipt_no, 'description' => 'Customer receipt applied / held as credit', 'debit' => 0, 'credit' => $amount, 'notes' => $payment->notes],
             ]);
         });
 

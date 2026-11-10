@@ -228,6 +228,14 @@
                         @endforeach
                     </select>
 
+                    <select name="customer_id" onchange="this.form.submit()"
+                            class="bg-zinc-50 border border-zinc-300 rounded-xl px-3 py-1.5 text-xs text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-500">
+                        <option value="">All Customers</option>
+                        @foreach($customers as $customer)
+                            <option value="{{ $customer->id }}" @selected(($filters['customer_id'] ?? '') == $customer->id)>{{ $customer->name }}</option>
+                        @endforeach
+                    </select>
+
                     @if($activeLedger === 'all' || $activeLedger === 'parties')
                         <select name="party_type" onchange="this.form.submit()"
                                 class="bg-zinc-50 border border-zinc-300 rounded-xl px-3 py-1.5 text-xs text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-500">
@@ -253,7 +261,7 @@
                         Filter
                     </button>
 
-                    @if(($filters['party_name'] ?? null) || ($filters['party_type'] ?? null) || ($filters['from'] ?? null) || ($filters['to'] ?? null))
+                    @if(($filters['party_name'] ?? null) || ($filters['customer_id'] ?? null) || ($filters['party_type'] ?? null) || ($filters['from'] ?? null) || ($filters['to'] ?? null))
                         <a href="{{ route('ledgers.index', $activeLedger === 'all' ? [] : ['ledger' => $activeLedger]) }}"
                            class="px-2.5 py-1.5 rounded-xl bg-zinc-100 text-zinc-500 hover:text-zinc-900 text-xs font-semibold transition-colors">
                             Clear
@@ -286,7 +294,7 @@
                                 <td class="px-4 py-3 font-mono font-bold text-zinc-900">
                                     {{ $l->voucher_no ?? '—' }}
                                 </td>
-                                <td class="px-4 py-3 font-bold text-zinc-800">{{ $l->party_name }}</td>
+                                <td class="px-4 py-3 font-bold text-zinc-800">{{ $l->customer?->name ?? $l->party_name }}</td>
                                 <td class="px-4 py-3">
                                     <span class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-zinc-100 text-zinc-600 border border-zinc-200">
                                         {{ str_replace('_', ' ', $l->party_type) }}

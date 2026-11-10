@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\BagPurchase;
 use App\Models\BagTransaction;
+use App\Models\Customer;
 use App\Models\FabricStock;
 use App\Models\Ledger;
 use App\Models\Part;
@@ -397,8 +398,22 @@ class DatabaseSeeder extends Seeder
         ]);
 
         // 7. Sales Contracts (Multi quality contract)
+        $apexCustomer = Customer::firstOrCreate(
+            ['name' => 'Apex Dyeing & Finishing Mills'],
+            ['phone' => '+92 300 8472911', 'status' => 'active']
+        );
+        $crescentCustomer = Customer::firstOrCreate(
+            ['name' => 'Crescent Garments Ltd'],
+            ['phone' => '+92 321 4455667', 'status' => 'active']
+        );
+        $hajiCustomer = Customer::firstOrCreate(
+            ['name' => 'Haji Cloth Merchant (Faisalabad)'],
+            ['phone' => '+92 312 9988776', 'status' => 'active']
+        );
+
         $contract1 = SalesContract::create([
             'contract_no' => 'CNT-2026-041',
+            'customer_id' => $apexCustomer->id,
             'buyer_name' => 'Apex Dyeing & Finishing Mills',
             'buyer_phone' => '+92 300 8472911',
             'fabric_quality' => 'Cotton Sheeting 68x68 / 30x30',
@@ -415,6 +430,7 @@ class DatabaseSeeder extends Seeder
 
         $contract2 = SalesContract::create([
             'contract_no' => 'CNT-2026-042',
+            'customer_id' => $crescentCustomer->id,
             'buyer_name' => 'Crescent Garments Ltd',
             'buyer_phone' => '+92 321 4455667',
             'fabric_quality' => 'Twill 2/1 108x56 / 40x40',
@@ -434,6 +450,7 @@ class DatabaseSeeder extends Seeder
             'slip_no' => 'SLIP-9011',
             'sale_type' => 'contract',
             'sales_contract_id' => $contract1->id,
+            'customer_id' => $apexCustomer->id,
             'buyer_name' => 'Apex Dyeing & Finishing Mills',
             'buyer_phone' => '+92 300 8472911',
             'fabric_quality' => 'Cotton Sheeting 68x68 / 30x30',
@@ -454,6 +471,7 @@ class DatabaseSeeder extends Seeder
             'slip_no' => 'SLIP-9012',
             'sale_type' => 'open_market',
             'sales_contract_id' => null,
+            'customer_id' => $hajiCustomer->id,
             'buyer_name' => 'Haji Cloth Merchant (Faisalabad)',
             'buyer_phone' => '+92 312 9988776',
             'fabric_quality' => 'Poplin 133x72 / 40x40',
@@ -574,6 +592,7 @@ class DatabaseSeeder extends Seeder
 
         Ledger::create([
             'party_name' => 'Apex Dyeing & Finishing Mills',
+            'customer_id' => $apexCustomer->id,
             'party_type' => 'fabric_buyer',
             'transaction_date' => now()->subDays(5)->toDateString(),
             'voucher_no' => 'SLIP-9011',
@@ -586,6 +605,7 @@ class DatabaseSeeder extends Seeder
 
         Ledger::create([
             'party_name' => 'Apex Dyeing & Finishing Mills',
+            'customer_id' => $apexCustomer->id,
             'party_type' => 'fabric_buyer',
             'transaction_date' => now()->subDays(3)->toDateString(),
             'voucher_no' => 'RV-502',

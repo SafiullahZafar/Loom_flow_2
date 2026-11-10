@@ -14,6 +14,7 @@ class SalesContract extends Model
     protected $fillable = [
         'contract_no',
         'buyer_name',
+        'customer_id',
         'buyer_phone',
         'fabric_stock_id',
         'fabric_quality',
@@ -132,6 +133,11 @@ class SalesContract extends Model
     public function fabricStock(): BelongsTo
     {
         return $this->belongsTo(FabricStock::class);
+    }
+
+    public function customer(): BelongsTo
+    {
+        return $this->belongsTo(Customer::class);
     }
 
     /**

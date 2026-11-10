@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Customer;
 use App\Models\Ledger;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -12,6 +13,7 @@ class LedgerController extends Controller
     {
         $filters = $request->validate([
             'party_name' => 'nullable|string|max:150',
+            'customer_id' => 'nullable|exists:customers,id',
             'party_type' => 'nullable|string|max:40',
             'ledger' => 'nullable|in:parties,expenses,cash_bank,inventory,income,equity',
             'from' => 'nullable|date',
@@ -25,10 +27,11 @@ class LedgerController extends Controller
             'income' => ['income'],
             'equity' => ['equity'],
         ];
-        $query = Ledger::query();
+        $query = Ledger::with('customer');
 
         $query
             ->when($filters['party_name'] ?? null, fn ($builder, string $partyName) => $builder->where('party_name', $partyName))
+            ->when($filters['customer_id'] ?? null, fn ($builder, int $customerId) => $builder->where('customer_id', $customerId))
             ->when($filters['party_type'] ?? null, fn ($builder, string $partyType) => $builder->where('party_type', $partyType))
             ->when($filters['ledger'] ?? null, function ($builder, string $ledger) use ($ledgerTypes): void {
                 $builder->whereIn('party_type', $ledgerTypes[$ledger]);
@@ -49,6 +52,7 @@ class LedgerController extends Controller
                 $builder->whereIn('party_type', $ledgerTypes[$ledger]);
             })
             ->when($filters['party_name'] ?? null, fn ($builder, string $partyName) => $builder->where('party_name', $partyName))
+            ->when($filters['customer_id'] ?? null, fn ($builder, int $customerId) => $builder->where('customer_id', $customerId))
             ->when($filters['party_type'] ?? null, fn ($builder, string $partyType) => $builder->where('party_type', $partyType))
             ->when($filters['from'] ?? null, fn ($builder, string $date) => $builder->whereDate('transaction_date', '>=', $date))
             ->when($filters['to'] ?? null, fn ($builder, string $date) => $builder->whereDate('transaction_date', '<=', $date));
@@ -66,10 +70,12 @@ class LedgerController extends Controller
             'equity' => 'Equity Ledger',
         ];
         $activeLedgerTitle = $ledgerTitles[$activeLedger];
+        $customers = Customer::whereHas('ledgers')->orderBy('name')->get();
 
         return view('ledgers.index', compact(
             'ledgers',
             'parties',
+            'customers',
             'filters',
             'totalDebit',
             'totalCredit',
