@@ -25,6 +25,8 @@ class Sale extends Model
         'subtotal',
         'discount',
         'net_total',
+        'cost_per_meter',
+        'cost_of_goods_sold',
         'payment_type',
         'payment_status',
         'sale_date',
@@ -40,6 +42,8 @@ class Sale extends Model
         'subtotal' => 'decimal:2',
         'discount' => 'decimal:2',
         'net_total' => 'decimal:2',
+        'cost_per_meter' => 'decimal:4',
+        'cost_of_goods_sold' => 'decimal:2',
     ];
 
     public function contract(): BelongsTo

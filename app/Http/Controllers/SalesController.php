@@ -154,6 +154,8 @@ class SalesController extends Controller
             $validated['subtotal'] = $validated['meters_sold'] * $validated['rate_per_meter'];
             $validated['discount'] = $validated['discount'] ?? 0;
             $validated['net_total'] = max(0, $validated['subtotal'] - $validated['discount']);
+            $validated['cost_per_meter'] = (float) $fabric->unit_cost_meter;
+            $validated['cost_of_goods_sold'] = round((float) $validated['meters_sold'] * $validated['cost_per_meter'], 2);
 
             $fabric->current_stock_meters -= $validated['meters_sold'];
             $fabric->total_rolls_in_stock = max(0, $fabric->total_rolls_in_stock - $validated['rolls_sold']);
@@ -162,7 +164,7 @@ class SalesController extends Controller
             $sale = Sale::create($validated);
             $this->syncCustomer($sale->buyer_name, $sale->buyer_phone);
             $isPaid = $sale->payment_status === 'paid';
-            $costOfGoodsSold = round((float) $sale->meters_sold * (float) $fabric->unit_cost_meter, 2);
+            $costOfGoodsSold = (float) $sale->cost_of_goods_sold;
             $ledgerLines = [
                 [
                     'role' => 'buyer',
@@ -308,8 +310,8 @@ class SalesController extends Controller
                 (float) $fabric->current_stock_meters,
                 (float) $activeContractMeters
             );
-            $customerStock = (float) \App\Models\ThaanRoll::where('fabric_stock_id', $fabric->id)
-                ->where('owner_type', 'customer')->whereIn('status', ['ready','returned_ready'])->sum('length_meters');
+            $customerStock = (float) ThaanRoll::where('fabric_stock_id', $fabric->id)
+                ->where('owner_type', 'customer')->whereIn('status', ['ready', 'returned_ready'])->sum('length_meters');
             $fabric->available_open_meters = max(
                 0,
                 $fabric->current_stock_meters - $customerStock - $fabric->committed_contract_meters

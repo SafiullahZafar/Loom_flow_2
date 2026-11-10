@@ -291,7 +291,7 @@ class FactoryParchiController extends Controller
             'sale_date' => 'required|date', 'notes' => 'nullable|string|max:1000',
         ]);
         DB::transaction(function () use ($data, $stock, $posting): void {
-            $rolls = ThaanRoll::with('order')->whereIn('id', $data['roll_ids'])->lockForUpdate()->get();
+            $rolls = ThaanRoll::with('order.parta')->whereIn('id', $data['roll_ids'])->lockForUpdate()->get();
             if ($rolls->count() !== count($data['roll_ids']) || $rolls->isEmpty() || $rolls->contains(fn ($r): bool => $r->status !== 'ready' || $r->owner_type !== 'factory')) {
                 throw ValidationException::withMessages(['roll_ids' => 'Choose available factory-owned A-category Thaans only.']);
             }
@@ -301,12 +301,16 @@ class FactoryParchiController extends Controller
             $fabric = FabricStock::findOrFail($rolls->first()->fabric_stock_id);
             $total = round((float) $rolls->sum('length_meters'), 2);
             $amount = round($total * (float) $data['rate_per_meter'], 2);
+            $costOfGoodsSold = round((float) $rolls->sum(fn (ThaanRoll $roll): float => (float) $roll->length_meters * (float) ($roll->order?->parta?->cost_per_meter ?? $fabric->unit_cost_meter)
+            ), 2);
+            $costPerMeter = $total > 0 ? round($costOfGoodsSold / $total, 4) : 0;
             $sale = Sale::create([
                 'slip_no' => $data['slip_no'], 'sale_type' => 'open_market',
                 'fabric_stock_id' => $fabric->id, 'buyer_name' => trim($data['buyer_name']),
                 'fabric_quality' => $fabric->quality_name, 'meters_sold' => $total,
                 'rolls_sold' => $rolls->count(), 'rate_per_meter' => $data['rate_per_meter'],
                 'subtotal' => $amount, 'discount' => 0, 'net_total' => $amount,
+                'cost_per_meter' => $costPerMeter, 'cost_of_goods_sold' => $costOfGoodsSold,
                 'payment_type' => 'credit', 'payment_status' => 'unpaid',
                 'sale_date' => $data['sale_date'], 'notes' => $data['notes'] ?? null,
             ]);
@@ -318,7 +322,7 @@ class FactoryParchiController extends Controller
                 ['role' => 'buyer', 'party_name' => $sale->buyer_name, 'party_type' => 'fabric_buyer', 'transaction_date' => $sale->sale_date, 'voucher_no' => $sale->slip_no, 'description' => 'Own-fabric sale', 'debit' => $amount, 'credit' => 0, 'notes' => null],
                 ['role' => 'revenue', 'party_name' => 'Fabric Sales Revenue', 'party_type' => 'income', 'transaction_date' => $sale->sale_date, 'voucher_no' => $sale->slip_no, 'description' => 'Own-fabric sale', 'debit' => 0, 'credit' => $amount, 'notes' => null],
             ];
-            $cost = round($total * (float) $fabric->unit_cost_meter, 2);
+            $cost = (float) $sale->cost_of_goods_sold;
             if ($cost > 0) {
                 $lines[] = ['role' => 'cost_of_goods_sold', 'party_name' => 'Cost of Goods Sold', 'party_type' => 'expense', 'transaction_date' => $sale->sale_date, 'voucher_no' => $sale->slip_no, 'description' => 'Own-fabric cost', 'debit' => $cost, 'credit' => 0, 'notes' => null];
                 $lines[] = ['role' => 'inventory', 'party_name' => 'Finished Fabric Inventory', 'party_type' => 'inventory', 'transaction_date' => $sale->sale_date, 'voucher_no' => $sale->slip_no, 'description' => 'Own-fabric cost released', 'debit' => 0, 'credit' => $cost, 'notes' => null];

@@ -9,9 +9,12 @@ use App\Models\FinancialAccount;
 use App\Models\Invoice;
 use App\Models\LoomAssignment;
 use App\Models\Part;
+use App\Models\PartaRecord;
 use App\Models\Production;
+use App\Models\Sale;
 use App\Models\SizingBeam;
 use App\Models\SizingSlip;
+use App\Models\ThaanRoll;
 use App\Models\User;
 use App\Models\WorkOrder;
 use App\Models\YarnMovement;
@@ -932,6 +935,50 @@ class LoomOperationsTest extends TestCase
             'source_role' => 'revenue',
             'party_name' => 'Fabric Sales Revenue',
             'credit' => 249000,
+        ]);
+    }
+
+    public function test_own_sale_uses_and_saves_order_parta_cost_snapshot(): void
+    {
+        $fabric = FabricStock::create([
+            'quality_name' => 'Frozen Parta Fabric', 'construction' => '90x66', 'width_inches' => 63.5,
+            'unit_cost_meter' => 900, 'current_stock_meters' => 10,
+            'available_open_meters' => 10, 'total_rolls_in_stock' => 1,
+        ]);
+        $parta = PartaRecord::create([
+            'fabric_stock_id' => $fabric->id, 'version' => 1,
+            'read' => 90, 'pick' => 66, 'width_inches' => 63.5,
+            'warp_count' => 58.5, 'weft_count' => 58.5,
+            'warp_rate_per_lb' => 600, 'weft_rate_per_lb' => 600,
+            'conversion_rate_per_pick' => 0.5, 'warp_lb_per_meter' => 0.1,
+            'weft_lb_per_meter' => 0.1, 'total_lb_per_meter' => 0.2,
+            'kg_per_meter' => 0.09, 'grams_per_meter' => 90,
+            'gsm' => 100, 'cost_per_meter' => 123.4567,
+        ]);
+        $order = WorkOrder::create([
+            'order_no' => 'OWN-FROZEN-COST', 'type' => 'own', 'fabric_stock_id' => $fabric->id,
+            'parta_record_id' => $parta->id, 'start_date' => now()->toDateString(),
+            'warp_supply' => 'factory', 'weft_supply' => 'factory',
+        ]);
+        $roll = ThaanRoll::create([
+            'roll_no' => 'OWN-FROZEN-TH-1', 'work_order_id' => $order->id,
+            'fabric_stock_id' => $fabric->id, 'loom_no' => 'Loom-01',
+            'checked_on' => now()->toDateString(), 'length_meters' => 10,
+            'grade' => 'A', 'status' => 'ready', 'owner_type' => 'factory',
+        ]);
+
+        $this->actingAs($this->user)->post(route('factory.own-sale.store'), [
+            'slip_no' => 'SALE-FROZEN-COST', 'roll_ids' => [$roll->id],
+            'buyer_name' => 'Local Buyer', 'rate_per_meter' => 200,
+            'sale_date' => now()->toDateString(),
+        ])->assertSessionHasNoErrors();
+
+        $sale = Sale::where('slip_no', 'SALE-FROZEN-COST')->firstOrFail();
+        $this->assertEqualsWithDelta(123.4567, (float) $sale->cost_per_meter, 0.001);
+        $this->assertSame(1234.57, (float) $sale->cost_of_goods_sold);
+        $this->assertDatabaseHas('ledgers', [
+            'source_type' => 'sale', 'source_id' => $sale->id,
+            'source_role' => 'cost_of_goods_sold', 'debit' => 1234.57,
         ]);
     }
 }
