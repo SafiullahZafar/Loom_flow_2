@@ -77,6 +77,11 @@ class DashboardController extends Controller
         $todayCheckedMeters = (float) ThaanRoll::whereDate('checked_on', today())->sum('length_meters');
         $totalAcceptedMeters = (float) WorkOrder::where('type', 'job')->sum('accepted_meters');
 
+        // Pending Pakki dispatches awaiting customer acceptance
+        $pendingPakkis = KachiParchi::with('order.fabricStock')->whereDoesntHave('pakki')->latest('id')->take(4)->get();
+        $pendingPakkiCount = KachiParchi::whereDoesntHave('pakki')->count();
+        $pendingPakkiMeters = (float) KachiParchi::whereDoesntHave('pakki')->sum('dispatched_meters');
+
         // Recent items for live feed
         $recentPurchases = BagPurchase::latest()->take(3)->get();
         $recentProductions = Production::latest()->take(3)->get();
@@ -109,6 +114,9 @@ class DashboardController extends Controller
             'contractDispatchedMeters',
             'contractProductionMeters',
             'jobWorkBalanceMeters',
+            'pendingPakkis',
+            'pendingPakkiCount',
+            'pendingPakkiMeters',
             'recentPurchases',
             'recentProductions',
             'recentSales'
