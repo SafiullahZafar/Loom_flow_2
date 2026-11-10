@@ -57,6 +57,9 @@ class FactoryParchiController extends Controller
                 throw ValidationException::withMessages(['roll_ids' => 'Select only available checked Thaans for this order.']);
             }
             $total = round((float) $rolls->sum('length_meters'), 2);
+            $firstDispatchMeters = $rolls->filter(function (ThaanRoll $roll) use ($order): bool {
+                return ! $roll->dispatchItems()->whereHas('kachi', fn ($query) => $query->where('work_order_id', $order->id))->exists();
+            })->sum('length_meters');
             $kachi = KachiParchi::create([
                 'parchi_no' => $data['parchi_no'], 'work_order_id' => $order->id,
                 'dispatch_date' => $data['dispatch_date'], 'dispatched_meters' => $total,
@@ -69,7 +72,9 @@ class FactoryParchiController extends Controller
             }
             $stock->move($order->fabricStock, -$total, -$rolls->count(), $data['dispatch_date'], 'Kachi '.$kachi->parchi_no);
             if ($order->contract) {
-                $order->contract->increment('delivered_meters', $total);
+                if ($firstDispatchMeters > 0) {
+                    $order->contract->increment('delivered_meters', $firstDispatchMeters);
+                }
             }
         });
 
@@ -227,7 +232,8 @@ class FactoryParchiController extends Controller
                     $roll->work_order_id = $newOrder->id;
                 }
                 $roll->save();
-                $stock->move($oldOrder->fabricStock, (float) $roll->length_meters, 1, $data['action_date'], 'Disposition '.$action.' '.$roll->roll_no);
+                $movementType = $action === 'resend_a' || $action === 'carry_forward' ? 'return' : 'receipt';
+                $stock->move($oldOrder->fabricStock, (float) $roll->length_meters, 1, $data['action_date'], 'Disposition '.$action.' '.$roll->roll_no, $movementType);
             } else {
                 $roll->update(['status' => 'disposed']);
             }

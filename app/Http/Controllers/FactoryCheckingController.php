@@ -30,7 +30,7 @@ class FactoryCheckingController extends Controller
     {
         $data = $request->validate([
             'checked_on' => 'required|date',
-            'loom_no' => 'required|string|regex:/^Loom-(0[1-9]|1[0-9]|2[0-4])$/',
+            'loom_no' => ['required', 'string', 'regex:/^Loom-(0[1-9]|1[0-9]|2[0-4])$/'],
             'rolls' => 'required|array|min:1|max:200',
             'rolls.*.roll_no' => 'required|string|max:100|distinct|unique:thaan_rolls,roll_no',
             'rolls.*.length_meters' => 'required|numeric|gt:0|max:100000',
@@ -62,6 +62,7 @@ class FactoryCheckingController extends Controller
             $total = round(array_sum(array_map(fn ($row): float => (float) $row['length_meters'], $data['rolls'])), 2);
             $stock->move($order->fabricStock, $total, count($data['rolls']), $data['checked_on'], 'Checking report '.$data['loom_no'].' / '.$order->order_no);
         });
+
         return back()->with('success', 'Checking report saved. Only the measured Thaan lengths were added to stock.');
     }
 }

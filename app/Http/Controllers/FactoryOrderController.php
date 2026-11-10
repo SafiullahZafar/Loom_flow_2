@@ -135,7 +135,7 @@ class FactoryOrderController extends Controller
     {
         $data = $request->validate([
             'work_order_id' => 'required|exists:work_orders,id',
-            'loom_no' => 'required|string|regex:/^Loom-(0[1-9]|1[0-9]|2[0-4])$/',
+            'loom_no' => ['required', 'string', 'regex:/^Loom-(0[1-9]|1[0-9]|2[0-4])$/'],
             'start_date' => 'required|date',
             'change_reason' => 'nullable|string|max:500',
         ]);

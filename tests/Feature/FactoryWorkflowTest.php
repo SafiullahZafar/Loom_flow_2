@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\BeamEvent;
 use App\Models\FabricStock;
+use App\Models\FabricStockMovement;
 use App\Models\Invoice;
 use App\Models\KachiParchi;
 use App\Models\Ledger;
@@ -112,6 +113,7 @@ class FactoryWorkflowTest extends TestCase
         $kachi = KachiParchi::where('parchi_no', 'KACHI-1')->firstOrFail();
         $this->assertEquals(0, (float) $this->quality->fresh()->current_stock_meters);
         $this->assertEquals(150, (float) $kachi->dispatched_meters);
+        $this->assertEquals(150, (float) $order->contract->fresh()->delivered_meters);
         $this->assertEquals(0, Invoice::count());
 
         $this->actingAs($this->operator)->post(route('factory.pakki.store'), [
@@ -134,11 +136,18 @@ class FactoryWorkflowTest extends TestCase
             'thaan_roll_id' => $rollIds[1], 'action' => 'resend_a', 'action_date' => '2026-11-03',
         ])->assertSessionHasNoErrors();
         $this->assertEquals(90, (float) $this->quality->fresh()->current_stock_meters);
+        $this->assertEquals(150, (float) $this->quality->fresh()->daily_received_meters);
         $this->actingAs($this->operator)->post(route('factory.kachi.store'), [
             'parchi_no' => 'KACHI-2', 'work_order_id' => $order->id,
             'dispatch_date' => '2026-11-04', 'roll_ids' => [$rollIds[1]],
         ])->assertSessionHasNoErrors();
         $this->assertEquals(0, (float) $this->quality->fresh()->current_stock_meters);
+        $this->assertEquals(150, (float) $order->contract->fresh()->delivered_meters);
+        $returnMovement = FabricStockMovement::whereDate('movement_date', '2026-11-03')->firstOrFail();
+        $this->assertSame(0.0, (float) $returnMovement->received_meters);
+        $this->assertSame(90.0, (float) $returnMovement->returned_meters);
+        $this->assertSame(0, (int) $returnMovement->rolls_received);
+        $this->assertSame(1, (int) $returnMovement->rolls_returned);
         $this->assertEquals(2, KachiParchi::count());
         $this->assertEquals(2, ThaanRoll::count()); // no new production on resend
     }

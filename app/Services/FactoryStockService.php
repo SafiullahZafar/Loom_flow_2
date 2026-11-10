@@ -6,13 +6,12 @@ use App\Models\FabricStock;
 use App\Models\FabricStockMovement;
 use App\Models\SalesContract;
 use App\Models\ThaanRoll;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class FactoryStockService
 {
-    /** Increment checked/returned stock or decrement dispatched/disposed stock once. */
-    public function move(FabricStock $fabric, float $meters, int $rollDelta, string $date, string $note): void
+    /** Apply a stock balance movement and record its business category. */
+    public function move(FabricStock $fabric, float $meters, int $rollDelta, string $date, string $note, string $movementType = 'receipt'): void
     {
         $fabric = FabricStock::whereKey($fabric->id)->lockForUpdate()->firstOrFail();
         $newBalance = round((float) $fabric->current_stock_meters + $meters, 2);
@@ -21,7 +20,7 @@ class FactoryStockService
         }
         $fabric->current_stock_meters = max(0, $newBalance);
         $fabric->total_rolls_in_stock = max(0, (int) $fabric->total_rolls_in_stock + $rollDelta);
-        if ($meters > 0) {
+        if ($movementType === 'receipt' && $meters > 0) {
             $fabric->daily_received_meters = (float) $fabric->daily_received_meters + $meters;
         }
         $fabric->save();
@@ -29,9 +28,14 @@ class FactoryStockService
         if (! $movement) {
             $movement = new FabricStockMovement(['fabric_stock_id' => $fabric->id, 'movement_date' => $date, 'previous_stock_meters' => max(0, $newBalance - $meters)]);
         }
-        $movement->received_meters = (float) ($movement->received_meters ?? 0) + max(0, $meters);
+        if ($movementType === 'receipt') {
+            $movement->received_meters = (float) ($movement->received_meters ?? 0) + max(0, $meters);
+            $movement->rolls_received = (int) ($movement->rolls_received ?? 0) + max(0, $rollDelta);
+        } elseif ($movementType === 'return') {
+            $movement->returned_meters = (float) ($movement->returned_meters ?? 0) + max(0, $meters);
+            $movement->rolls_returned = (int) ($movement->rolls_returned ?? 0) + max(0, $rollDelta);
+        }
         $movement->dispatch_meters = (float) ($movement->dispatch_meters ?? 0) + max(0, -$meters);
-        $movement->rolls_received = (int) ($movement->rolls_received ?? 0) + max(0, $rollDelta);
         $movement->closing_stock_meters = $fabric->current_stock_meters;
         $movement->remarks = trim(($movement->remarks ? $movement->remarks.'; ' : '').$note);
         $movement->save();

@@ -17,8 +17,10 @@ class FabricStockMovement extends Model
         'received_meters',
         'adjustment_meters',
         'dispatch_meters',
+        'returned_meters',
         'closing_stock_meters',
         'rolls_received',
+        'rolls_returned',
         'area',
         'remarks',
     ];
@@ -29,8 +31,10 @@ class FabricStockMovement extends Model
         'received_meters' => 'decimal:2',
         'adjustment_meters' => 'decimal:2',
         'dispatch_meters' => 'decimal:2',
+        'returned_meters' => 'decimal:2',
         'closing_stock_meters' => 'decimal:2',
         'rolls_received' => 'integer',
+        'rolls_returned' => 'integer',
     ];
 
     public function fabricStock(): BelongsTo

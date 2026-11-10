@@ -68,7 +68,7 @@ class FactoryReportController extends Controller
     public function stoppage(Request $request): RedirectResponse
     {
         $data = $request->validate([
-            'loom_no' => 'required|string|regex:/^Loom-(0[1-9]|1[0-9]|2[0-4])$/',
+            'loom_no' => ['required', 'string', 'regex:/^Loom-(0[1-9]|1[0-9]|2[0-4])$/'],
             'work_order_id' => 'nullable|exists:work_orders,id', 'stopped_on' => 'required|date',
             'downtime_minutes' => 'required|integer|min:1|max:1440',
             'reason' => 'required|string|max:150', 'repair_cost' => 'nullable|numeric|min:0',
