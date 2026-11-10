@@ -9,7 +9,6 @@ use App\Models\KachiParchi;
 use App\Models\KachiParchiItem;
 use App\Models\PakkiParchi;
 use App\Models\Sale;
-use App\Models\SalesContract;
 use App\Models\ThaanDisposition;
 use App\Models\ThaanReturn;
 use App\Models\ThaanRoll;
@@ -73,6 +72,7 @@ class FactoryParchiController extends Controller
                 $order->contract->increment('delivered_meters', $total);
             }
         });
+
         return back()->with('success', 'Kachi Parchi saved with individual Thaans and total dispatched metres. No weaving bill is created until Pakki Parchi.');
     }
 
@@ -144,6 +144,7 @@ class FactoryParchiController extends Controller
                 ThaanRoll::whereIn('id', $kachi->items()->pluck('thaan_roll_id'))->where('status', 'dispatched')->update(['status' => 'accepted']);
             }
         });
+
         return back()->with('success', 'Pakki recorded. Weaving bill uses accepted metres only, not dispatched metres.');
     }
 
@@ -182,10 +183,11 @@ class FactoryParchiController extends Controller
                 ThaanRoll::whereIn('id', $validIds)->where('status', 'dispatched')->update(['status' => 'accepted']);
             }
         });
+
         return back()->with('success', 'Returned rejected Thaans identified using original markings. They remain on hold until you decide their use.');
     }
 
-    public function disposition(Request $request, FactoryStockService $stock): RedirectResponse
+    public function disposition(Request $request, FactoryStockService $stock, LedgerPostingService $posting): RedirectResponse
     {
         $data = $request->validate([
             'thaan_roll_id' => 'required|exists:thaan_rolls,id',
@@ -195,7 +197,7 @@ class FactoryParchiController extends Controller
             'approval_reference' => 'nullable|string|max:150',
             'action_date' => 'required|date', 'notes' => 'nullable|string|max:1000',
         ]);
-        DB::transaction(function () use ($data, $stock): void {
+        DB::transaction(function () use ($data, $stock, $posting): void {
             $roll = ThaanRoll::with('order.fabricStock')->whereKey($data['thaan_roll_id'])->lockForUpdate()->firstOrFail();
             if ($roll->status !== 'returned_hold') {
                 throw ValidationException::withMessages(['thaan_roll_id' => 'Only rejected returned Thaans on hold may be disposed.']);
@@ -229,26 +231,48 @@ class FactoryParchiController extends Controller
             } else {
                 $roll->update(['status' => 'disposed']);
             }
-            ThaanDisposition::create([
+            $disposition = ThaanDisposition::create([
                 'thaan_roll_id' => $roll->id, 'from_work_order_id' => $oldOrder->id,
                 'to_work_order_id' => $newOrder?->id, 'action' => $action,
                 'settlement_amount' => $data['settlement_amount'] ?? null,
                 'approval_reference' => $data['approval_reference'] ?? null,
                 'action_date' => $data['action_date'], 'notes' => $data['notes'] ?? null,
             ]);
+            if (in_array($action, ['settle_keep', 'sell_approved'], true) && (float) $disposition->settlement_amount > 0) {
+                $amount = round((float) $disposition->settlement_amount, 2);
+                $description = $action === 'settle_keep'
+                    ? 'Rejected fabric settlement retained by factory: '.$roll->roll_no
+                    : 'Rejected fabric settlement approved for resale: '.$roll->roll_no;
+                $voucher = 'THAAN-SETTLEMENT-'.$disposition->id;
+                $posting->post('thaan_disposition_settlement', $disposition->id, [
+                    [
+                        'role' => 'customer', 'party_name' => $oldOrder->party_name, 'party_type' => 'fabric_buyer',
+                        'transaction_date' => $data['action_date'], 'voucher_no' => $voucher, 'description' => $description,
+                        'debit' => 0, 'credit' => $amount, 'notes' => $data['notes'] ?? null,
+                    ],
+                    [
+                        'role' => 'settlement_expense', 'party_name' => 'Customer Material Settlements', 'party_type' => 'expense',
+                        'transaction_date' => $data['action_date'], 'voucher_no' => $voucher, 'description' => $description,
+                        'debit' => $amount, 'credit' => 0, 'notes' => $data['notes'] ?? null,
+                    ],
+                ]);
+            }
         });
+
         return back()->with('success', 'Rejected fabric disposition saved with its original Thaan marking and history.');
     }
 
     public function printKachi(KachiParchi $kachi): View
     {
         $kachi->load(['order.fabricStock', 'items.roll']);
+
         return view('factory.print', ['title' => 'Kachi Parchi', 'kachi' => $kachi]);
     }
 
     public function printPakki(PakkiParchi $pakki): View
     {
         $pakki->load(['kachi.order.fabricStock', 'kachi.items.roll']);
+
         return view('factory.print', ['title' => 'Pakki Parchi', 'kachi' => $pakki->kachi, 'pakki' => $pakki]);
     }
 
@@ -295,6 +319,7 @@ class FactoryParchiController extends Controller
             }
             $posting->post('sale', $sale->id, $lines);
         });
+
         return back()->with('success', 'Own-fabric sale saved. Create its invoice in the existing Invoices module if required.');
     }
 }

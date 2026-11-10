@@ -2,9 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\BeamEvent;
 use App\Models\BagTransaction;
-use App\Models\YarnQuality;
+use App\Models\BeamEvent;
 use App\Models\FabricStock;
 use App\Models\LoomAssignment;
 use App\Models\PartaRecord;
@@ -14,6 +13,8 @@ use App\Models\SizingBeam;
 use App\Models\ThaanRoll;
 use App\Models\WorkOrder;
 use App\Models\YarnMovement;
+use App\Models\YarnQuality;
+use App\Services\LedgerPostingService;
 use App\Services\PartaService;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
@@ -50,6 +51,7 @@ class FactoryOrderController extends Controller
             'conversion_rate_per_pick' => 'required|numeric|min:0',
         ]);
         DB::transaction(fn () => $parta->save(FabricStock::findOrFail($data['fabric_stock_id']), $data));
+
         return back()->with('success', 'Parta saved with weight and cost per metre. Existing order costing remains unchanged.');
     }
 
@@ -125,6 +127,7 @@ class FactoryOrderController extends Controller
                 'start_date' => $data['start_date'], 'notes' => $data['notes'] ?? null,
             ]);
         });
+
         return back()->with('success', 'Order created. Allocate one or more looms to begin tracking production.');
     }
 
@@ -169,6 +172,7 @@ class FactoryOrderController extends Controller
                 'start_date' => $data['start_date'], 'change_reason' => $data['change_reason'] ?? null,
             ]);
         });
+
         return back()->with('success', 'Loom allocation saved. Checking automatically uses the correct order and quality.');
     }
 
@@ -222,23 +226,24 @@ class FactoryOrderController extends Controller
                 ]);
             }
         });
+
         return back()->with('success', 'Yarn movement recorded in the order material khata.');
     }
 
-    public function beam(Request $request): RedirectResponse
+    public function beam(Request $request, LedgerPostingService $ledgerPostingService): RedirectResponse
     {
         $data = $request->validate([
             'sizing_beam_id' => 'required|exists:sizing_beams,id',
             'action' => 'required|in:mount,unmount,settle_reassign',
             'work_order_id' => 'nullable|exists:work_orders,id',
-            'loom_no' => 'nullable|string|regex:/^Loom-(0[1-9]|1[0-9]|2[0-4])$/',
+            'loom_no' => ['nullable', 'string', 'regex:/^Loom-(0[1-9]|1[0-9]|2[0-4])$/'],
             'event_date' => 'required|date',
             'initial_net_weight_kg' => 'nullable|numeric|gt:0',
             'remaining_weight_kg' => 'nullable|numeric|gt:0',
             'agreed_settlement' => 'nullable|numeric|min:0',
             'notes' => 'nullable|string|max:1000',
         ]);
-        DB::transaction(function () use ($data): void {
+        DB::transaction(function () use ($data, $ledgerPostingService): void {
             $beam = SizingBeam::whereKey($data['sizing_beam_id'])->lockForUpdate()->firstOrFail();
             if ((float) $beam->remaining_length_meters <= 0) {
                 throw ValidationException::withMessages(['sizing_beam_id' => 'An exhausted beam cannot be transferred.']);
@@ -249,6 +254,8 @@ class FactoryOrderController extends Controller
             $toLoom = $data['loom_no'] ?? null;
             $predicted = null;
             $weight = null;
+            $settlement = null;
+            $oldOrder = null;
             if (isset($data['initial_net_weight_kg'])) {
                 $beam->initial_net_weight_kg = $data['initial_net_weight_kg'];
             }
@@ -293,6 +300,7 @@ class FactoryOrderController extends Controller
                     if (! isset($data['agreed_settlement']) && $predicted === null) {
                         throw ValidationException::withMessages(['agreed_settlement' => 'Enter the agreed settlement amount, or provide beam weight and a contract yarn rate to calculate it.']);
                     }
+                    $settlement = round((float) ($data['agreed_settlement'] ?? $predicted), 2);
                 }
                 $occupied = SizingBeam::where('assigned_loom_no', $toLoom)->where('status', 'mounted_on_loom')->whereKeyNot($beam->id)->exists();
                 if ($occupied) {
@@ -305,7 +313,7 @@ class FactoryOrderController extends Controller
                 $beam->status = 'mounted_on_loom';
             }
             $beam->save();
-            BeamEvent::create([
+            $beamEvent = BeamEvent::create([
                 'sizing_beam_id' => $beam->id, 'from_work_order_id' => $fromOrder,
                 'to_work_order_id' => $toOrder, 'from_loom' => $fromLoom, 'to_loom' => $toLoom,
                 'action' => $data['action'], 'remaining_length_meters' => $beam->remaining_length_meters,
@@ -313,8 +321,50 @@ class FactoryOrderController extends Controller
                 'agreed_settlement' => $data['action'] === 'settle_reassign' ? ($data['agreed_settlement'] ?? $predicted) : null,
                 'event_date' => $data['event_date'], 'notes' => $data['notes'] ?? null,
             ]);
+            if ($settlement !== null && $settlement > 0 && $oldOrder !== null) {
+                $this->postCustomerSettlement(
+                    $ledgerPostingService,
+                    'beam_settlement',
+                    $beamEvent->id,
+                    $oldOrder->party_name,
+                    $data['event_date'],
+                    'BEAM-'.$beamEvent->id,
+                    'Customer yarn settlement for beam '.$beam->beam_no,
+                    $settlement,
+                    $data['notes'] ?? null,
+                );
+            }
         });
+
         return back()->with('success', 'Beam action saved with its remaining length and settlement history.');
+    }
+
+    /**
+     * Post a customer credit and matching factory settlement debit.
+     */
+    private function postCustomerSettlement(
+        LedgerPostingService $ledgerPostingService,
+        string $sourceType,
+        int $sourceId,
+        string $customerName,
+        string $date,
+        string $voucher,
+        string $description,
+        float $amount,
+        ?string $notes,
+    ): void {
+        $ledgerPostingService->post($sourceType, $sourceId, [
+            [
+                'role' => 'customer', 'party_name' => $customerName, 'party_type' => 'fabric_buyer',
+                'transaction_date' => $date, 'voucher_no' => $voucher, 'description' => $description,
+                'debit' => 0, 'credit' => $amount, 'notes' => $notes,
+            ],
+            [
+                'role' => 'settlement_expense', 'party_name' => 'Customer Material Settlements', 'party_type' => 'expense',
+                'transaction_date' => $date, 'voucher_no' => $voucher, 'description' => $description,
+                'debit' => $amount, 'credit' => 0, 'notes' => $notes,
+            ],
+        ]);
     }
 
     public function close(Request $request, WorkOrder $order): RedirectResponse
@@ -345,6 +395,7 @@ class FactoryOrderController extends Controller
                 $order->contract->update(['status' => 'completed']);
             }
         });
+
         return back()->with('success', 'Order closed; all earlier production and settlement history is preserved.');
     }
 }

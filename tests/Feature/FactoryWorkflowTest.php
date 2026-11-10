@@ -2,8 +2,15 @@
 
 namespace Tests\Feature;
 
+use App\Models\BeamEvent;
 use App\Models\FabricStock;
+use App\Models\Invoice;
 use App\Models\KachiParchi;
+use App\Models\Ledger;
+use App\Models\LoomAssignment;
+use App\Models\PartaRecord;
+use App\Models\Production;
+use App\Models\SizingBeam;
 use App\Models\ThaanRoll;
 use App\Models\User;
 use App\Models\WorkOrder;
@@ -19,6 +26,7 @@ class FactoryWorkflowTest extends TestCase
     use RefreshDatabase;
 
     private User $operator;
+
     private FabricStock $quality;
 
     protected function setUp(): void
@@ -35,7 +43,7 @@ class FactoryWorkflowTest extends TestCase
             'warp_count' => 58.5, 'weft_count' => 58.5,
             'warp_rate_per_lb' => 600, 'weft_rate_per_lb' => 600,
             'conversion_rate_per_pick' => 0.50,
-        ])->assertSessionHasNoErrors();
+        ])->assertSessionHasNoErrors()->assertSessionHas('success');
     }
 
     private function openOrder(string $type = 'job', string $orderNo = 'TEST-001'): WorkOrder
@@ -52,6 +60,7 @@ class FactoryWorkflowTest extends TestCase
             $input += ['target_meters' => 1000, 'party_name' => 'ABC Textile', 'contract_no' => 'CON-'.$orderNo];
         }
         $this->actingAs($this->operator)->post(route('factory.order.store'), $input)->assertSessionHasNoErrors();
+
         return WorkOrder::where('order_no', $orderNo)->firstOrFail();
     }
 
@@ -67,12 +76,13 @@ class FactoryWorkflowTest extends TestCase
                 ['roll_no' => $order->order_no.'-TH-02', 'length_meters' => 90],
             ],
         ])->assertSessionHasNoErrors();
+
         return ThaanRoll::where('work_order_id', $order->id)->orderBy('id')->pluck('id')->all();
     }
 
     public function test_parta_uses_local_800_divisor_and_stores_gram_weight(): void
     {
-        $parta = \App\Models\PartaRecord::firstOrFail();
+        $parta = PartaRecord::firstOrFail();
         $expectedWarp = floor(((90 * 63.5 / 58.5 * 1.0936 / 800) + 0.000000001) * 10000) / 10000;
         $this->assertEqualsWithDelta($expectedWarp, (float) $parta->warp_lb_per_meter, 0.00001);
         $this->assertEqualsWithDelta((float) $parta->kg_per_meter * 1000, (float) $parta->grams_per_meter, 0.01);
@@ -88,7 +98,7 @@ class FactoryWorkflowTest extends TestCase
         $this->assertEquals(150, (float) $this->quality->fresh()->current_stock_meters);
         $this->assertEquals(2, (int) $this->quality->fresh()->total_rolls_in_stock);
         $this->assertDatabaseHas('thaan_rolls', ['id' => $rollIds[0], 'grade' => 'A', 'owner_type' => 'factory', 'loom_no' => 'Loom-01']);
-        $this->assertEquals(0, \App\Models\Production::count());
+        $this->assertEquals(0, Production::count());
     }
 
     public function test_kachi_pakki_billing_and_rejected_return_are_linked_without_double_stock(): void
@@ -102,7 +112,7 @@ class FactoryWorkflowTest extends TestCase
         $kachi = KachiParchi::where('parchi_no', 'KACHI-1')->firstOrFail();
         $this->assertEquals(0, (float) $this->quality->fresh()->current_stock_meters);
         $this->assertEquals(150, (float) $kachi->dispatched_meters);
-        $this->assertEquals(0, \App\Models\Invoice::count());
+        $this->assertEquals(0, Invoice::count());
 
         $this->actingAs($this->operator)->post(route('factory.pakki.store'), [
             'parchi_no' => 'PAKKI-1', 'kachi_parchi_id' => $kachi->id,
@@ -129,8 +139,8 @@ class FactoryWorkflowTest extends TestCase
             'dispatch_date' => '2026-11-04', 'roll_ids' => [$rollIds[1]],
         ])->assertSessionHasNoErrors();
         $this->assertEquals(0, (float) $this->quality->fresh()->current_stock_meters);
-        $this->assertEquals(2, \App\Models\KachiParchi::count());
-        $this->assertEquals(2, \App\Models\ThaanRoll::count()); // no new production on resend
+        $this->assertEquals(2, KachiParchi::count());
+        $this->assertEquals(2, ThaanRoll::count()); // no new production on resend
     }
 
     public function test_fabric_cannot_be_checked_without_loom_assignment(): void
@@ -141,5 +151,66 @@ class FactoryWorkflowTest extends TestCase
             'rolls' => [['roll_no' => 'UNASSIGNED-ROLL', 'length_meters' => 100]],
         ])->assertSessionHasErrors('loom_no');
         $this->assertEquals(0, (float) $this->quality->fresh()->current_stock_meters);
+    }
+
+    public function test_beam_settlement_posts_customer_credit_and_balanced_expense(): void
+    {
+        $customerOrder = $this->openOrder('job', 'SETTLE-OLD');
+        $newOrder = $this->openOrder('own', 'SETTLE-NEW');
+        LoomAssignment::create([
+            'work_order_id' => $newOrder->id, 'loom_no' => 'Loom-02', 'start_date' => '2026-11-03',
+        ]);
+        $beam = SizingBeam::create([
+            'fabric_stock_id' => $this->quality->id, 'beam_no' => 'BEAM-SETTLE-1',
+            'yarn_quality' => '58.5', 'total_length_meters' => 1000, 'remaining_length_meters' => 500,
+            'status' => 'ready_in_store', 'work_order_id' => $customerOrder->id,
+            'initial_net_weight_kg' => 100,
+        ]);
+
+        $this->actingAs($this->operator)->post(route('factory.beam'), [
+            'sizing_beam_id' => $beam->id, 'action' => 'settle_reassign',
+            'work_order_id' => $newOrder->id, 'loom_no' => 'Loom-02', 'event_date' => '2026-11-03',
+            'remaining_weight_kg' => 10, 'agreed_settlement' => 5000, 'notes' => 'Agreed yarn value',
+        ])->assertSessionHasNoErrors()->assertSessionHas('success');
+
+        $event = BeamEvent::where('sizing_beam_id', $beam->id)->firstOrFail();
+        $this->assertDatabaseHas('ledgers', [
+            'source_type' => 'beam_settlement', 'source_id' => $event->id, 'source_role' => 'customer',
+            'party_name' => 'ABC Textile', 'party_type' => 'fabric_buyer', 'debit' => 0, 'credit' => 5000,
+        ]);
+        $this->assertDatabaseHas('ledgers', [
+            'source_type' => 'beam_settlement', 'source_id' => $event->id, 'source_role' => 'settlement_expense',
+            'party_name' => 'Customer Material Settlements', 'debit' => 5000, 'credit' => 0,
+        ]);
+        $this->assertSame(5000.0, (float) Ledger::where('party_name', 'ABC Textile')->where('source_type', 'beam_settlement')->value('credit'));
+        $this->actingAs($this->operator)->get(route('ledgers.index', ['party_name' => 'ABC Textile']))
+            ->assertOk()->assertSee('BEAM-'.$event->id)->assertSee('5,000.00');
+    }
+
+    public function test_settle_keep_rejected_thaan_posts_customer_credit_and_balanced_expense(): void
+    {
+        $order = $this->openOrder('job', 'SETTLE-THAAN');
+        $roll = ThaanRoll::create([
+            'roll_no' => 'SETTLE-THAAN-01', 'work_order_id' => $order->id,
+            'fabric_stock_id' => $this->quality->id, 'loom_no' => 'Loom-01',
+            'checked_on' => '2026-11-01', 'length_meters' => 20, 'grade' => 'A',
+            'status' => 'returned_hold', 'owner_type' => 'customer',
+        ]);
+
+        $this->actingAs($this->operator)->post(route('factory.disposition.store'), [
+            'thaan_roll_id' => $roll->id, 'action' => 'settle_keep', 'settlement_amount' => 3000,
+            'action_date' => '2026-11-04', 'notes' => 'Customer agreed to transfer ownership',
+        ])->assertSessionHasNoErrors();
+
+        $this->assertDatabaseHas('ledgers', [
+            'source_type' => 'thaan_disposition_settlement', 'source_role' => 'customer',
+            'party_name' => 'ABC Textile', 'party_type' => 'fabric_buyer', 'debit' => 0, 'credit' => 3000,
+        ]);
+        $this->assertDatabaseHas('ledgers', [
+            'source_type' => 'thaan_disposition_settlement', 'source_role' => 'settlement_expense',
+            'party_name' => 'Customer Material Settlements', 'debit' => 3000, 'credit' => 0,
+        ]);
+        $this->actingAs($this->operator)->get(route('ledgers.index', ['party_name' => 'ABC Textile']))
+            ->assertOk()->assertSee('THAAN-SETTLEMENT-1')->assertSee('3,000.00');
     }
 }
