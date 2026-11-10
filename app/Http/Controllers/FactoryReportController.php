@@ -13,6 +13,7 @@ use App\Models\WorkOrder;
 use App\Models\YarnMovement;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class FactoryReportController extends Controller
@@ -40,7 +41,7 @@ class FactoryReportController extends Controller
         });
 
         return view('factory.reports', [
-            'rows' => $rows, 'orders' => $orders,
+            'rows' => $rows, 'orders' => $orders, 'looms' => config('loomflow.looms'),
             'wages' => FactoryWorkerWage::with('order')->latest('wage_date')->limit(40)->get(),
             'stoppages' => LoomStoppage::with('order')->latest('stopped_on')->limit(40)->get(),
             'activeAssignments' => LoomAssignment::with('order.fabricStock')->whereNull('end_date')->orderBy('loom_no')->get(),
@@ -51,7 +52,7 @@ class FactoryReportController extends Controller
     {
         $data = $request->validate([
             'worker_name' => 'required|string|max:150', 'work_order_id' => 'nullable|exists:work_orders,id',
-            'loom_no' => 'nullable|string|max:50', 'wage_date' => 'required|date',
+            'loom_no' => ['nullable', 'string', Rule::in(config('loomflow.looms'))], 'wage_date' => 'required|date',
             'basis' => 'required|in:metre,day,fixed', 'quantity' => 'required|numeric|gt:0',
             'rate' => 'required|numeric|min:0', 'advance_adjustment' => 'nullable|numeric|min:0',
             'paid_amount' => 'nullable|numeric|min:0', 'notes' => 'nullable|string|max:1000',
@@ -69,7 +70,7 @@ class FactoryReportController extends Controller
     public function stoppage(Request $request): RedirectResponse
     {
         $data = $request->validate([
-            'loom_no' => ['required', 'string', 'regex:/^Loom-(0[1-9]|1[0-9]|2[0-4])$/'],
+            'loom_no' => ['required', 'string', Rule::in(config('loomflow.looms'))],
             'work_order_id' => 'nullable|exists:work_orders,id', 'stopped_on' => 'required|date',
             'downtime_minutes' => 'required|integer|min:1|max:1440',
             'reason' => 'required|string|max:150', 'repair_cost' => 'nullable|numeric|min:0',

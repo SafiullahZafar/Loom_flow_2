@@ -31,9 +31,9 @@
                     <label class="text-xs font-bold text-stone-700">
                         Loom Number
                         <select name="loom_no" class="w-full mt-1 border border-[#e2e8e0] rounded-xl p-2.5 text-xs bg-white focus:outline-none focus:border-[#133e2b] focus:ring-1 focus:ring-[#133e2b]" required>
-                            @for($i=1;$i<=24;$i++)
-                                <option>{{ sprintf('Loom-%02d',$i) }}</option>
-                            @endfor
+                            @foreach($looms as $loom)
+                                <option value="{{ $loom }}">{{ $loom }}</option>
+                            @endforeach
                         </select>
                     </label>
                 </div>

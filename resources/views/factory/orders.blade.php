@@ -242,9 +242,9 @@
                     <label class="text-xs font-bold text-stone-700">
                         Loom
                         <select name="loom_no" class="mt-1 w-full border border-[#e2e8e0] rounded-xl p-2.5 text-xs bg-white">
-                            @for($i=1;$i<=24;$i++)
-                                <option>{{ sprintf('Loom-%02d',$i) }}</option>
-                            @endfor
+                            @foreach($looms as $loom)
+                                <option value="{{ $loom }}">{{ $loom }}</option>
+                            @endforeach
                         </select>
                     </label>
                     <label class="text-xs font-bold text-stone-700">
@@ -328,9 +328,9 @@
                         Target Loom
                         <select name="loom_no" class="mt-1 w-full border border-[#e2e8e0] rounded-xl p-2.5 text-xs bg-white">
                             <option value="">Unmount / no loom</option>
-                            @for($i=1;$i<=24;$i++)
-                                <option>{{ sprintf('Loom-%02d',$i) }}</option>
-                            @endfor
+                            @foreach($looms as $loom)
+                                <option value="{{ $loom }}">{{ $loom }}</option>
+                            @endforeach
                         </select>
                     </label>
                 </div>

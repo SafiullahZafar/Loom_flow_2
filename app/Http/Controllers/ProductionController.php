@@ -3,16 +3,17 @@
 namespace App\Http\Controllers;
 
 use App\Models\FabricStock;
-use App\Models\LoomAssignment;
 use App\Models\FabricStockMovement;
+use App\Models\LoomAssignment;
 use App\Models\Production;
-use App\Models\SalesContract;
 use App\Models\SizingBeam;
+use App\Models\WorkOrder;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
@@ -92,7 +93,7 @@ class ProductionController extends Controller
                 ->get()
             : collect();
         $fabricQualities = FabricStock::orderBy('quality_name')->get();
-        $looms = collect(range(1, 24))->map(fn ($i) => sprintf('Loom-%02d', $i));
+        $looms = config('loomflow.looms');
         $loomQualityIds = Production::query()
             ->whereIn('loom_no', $looms)
             ->whereNotNull('fabric_stock_id')
@@ -163,7 +164,7 @@ class ProductionController extends Controller
         $validated = $request->validate([
             'production_date' => 'required|date',
             'shift' => 'required|in:Day,Night',
-            'loom_no' => 'required|string|max:50',
+            'loom_no' => ['required', 'string', Rule::in(config('loomflow.looms'))],
             'operator_name' => 'required|string|max:150',
             'sizing_beam_id' => 'required|exists:sizing_beams,id',
             'fabric_stock_id' => 'required|exists:fabric_stocks,id',
@@ -189,7 +190,7 @@ class ProductionController extends Controller
             if (! $assignment) {
                 throw ValidationException::withMessages(['loom_no' => 'Allocate the loom to an active order for this date first.']);
             }
-            $order = \App\Models\WorkOrder::findOrFail($assignment->work_order_id);
+            $order = WorkOrder::findOrFail($assignment->work_order_id);
             if ($beam->work_order_id && (int) $beam->work_order_id !== (int) $order->id) {
                 throw ValidationException::withMessages(['sizing_beam_id' => 'This beam belongs to a different contract. Settle or transfer the beam first.']);
             }
@@ -259,7 +260,7 @@ class ProductionController extends Controller
         $validated = $request->validate([
             'production_date' => 'required|date',
             'rolls' => 'required|array|min:1|max:200',
-            'rolls.*.loom_no' => 'required|string|max:50',
+            'rolls.*.loom_no' => ['required', 'string', Rule::in(config('loomflow.looms'))],
             'rolls.*.fabric_stock_id' => 'nullable|exists:fabric_stocks,id',
             'rolls.*.gazana_per_roll' => 'required|numeric|gt:0|max:100000',
             'rolls.*.quantity' => 'required|integer|min:1|max:10000',

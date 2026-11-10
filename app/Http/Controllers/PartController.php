@@ -10,6 +10,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class PartController extends Controller
@@ -61,7 +62,7 @@ class PartController extends Controller
         $totalIssuanceCost = PartIssuance::sum('total_cost');
 
         $categories = ['Gripper', 'Rapier', 'Heald & Dropper', 'Sensor', 'Mechanical', 'Electrical', 'Consumables'];
-        $looms = collect(range(1, 24))->map(fn ($i) => sprintf('Loom-%02d', $i));
+        $looms = config('loomflow.looms');
 
         return view('parts.index', compact(
             'page',
@@ -114,7 +115,7 @@ class PartController extends Controller
     {
         $validated = $request->validate([
             'part_id' => 'required|exists:parts,id',
-            'loom_no' => 'required|string|max:50',
+            'loom_no' => ['required', 'string', Rule::in(config('loomflow.looms'))],
             'issued_to_person' => 'required|string|max:150',
             'quantity' => 'required|integer|min:1',
             'issuance_date' => 'required|date',

@@ -5,9 +5,9 @@ namespace App\Http\Controllers;
 use App\Models\BagTransaction;
 use App\Models\BeamEvent;
 use App\Models\LoomAssignment;
-use App\Models\WorkOrder;
 use App\Models\SizingBeam;
 use App\Models\SizingSlip;
+use App\Models\WorkOrder;
 use App\Models\YarnQuality;
 use App\Services\LedgerPostingService;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -15,6 +15,8 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class SizingController extends Controller
@@ -117,8 +119,7 @@ class SizingController extends Controller
         $kilogramsPerBag = self::BAG_WEIGHT_POUNDS * self::KILOGRAMS_PER_POUND;
         $yarnQualities = YarnQuality::orderBy('name')->get();
 
-        // All active looms list (1 to 24)
-        $looms = collect(range(1, 24))->map(fn ($i) => sprintf('Loom-%02d', $i));
+        $looms = config('loomflow.looms');
 
         return view('sizing.index', compact(
             'page',
@@ -373,7 +374,7 @@ class SizingController extends Controller
     public function assignBeam(Request $request, SizingBeam $beam): RedirectResponse
     {
         $validated = $request->validate([
-            'assigned_loom_no' => 'required|string|max:50',
+            'assigned_loom_no' => ['required', 'string', Rule::in(config('loomflow.looms'))],
             'mounted_date' => 'required|date',
         ]);
 
@@ -399,18 +400,18 @@ class SizingController extends Controller
                     $query->whereNull('end_date')->orWhere('end_date', '>=', $validated['mounted_date']);
                 })->first();
             if (! $assignment) {
-                throw \Illuminate\Validation\ValidationException::withMessages([
+                throw ValidationException::withMessages([
                     'assigned_loom_no' => 'Allocate this loom to a production order for the mounting date first.',
                 ]);
             }
             $order = WorkOrder::findOrFail($assignment->work_order_id);
             if ($beam->work_order_id && (int) $beam->work_order_id !== (int) $order->id) {
-                throw \Illuminate\Validation\ValidationException::withMessages([
+                throw ValidationException::withMessages([
                     'assigned_loom_no' => 'This beam belongs to its previous contract; use Settle & Reassign.',
                 ]);
             }
             if ($beam->fabric_stock_id && (int) $beam->fabric_stock_id !== (int) $order->fabric_stock_id) {
-                throw \Illuminate\Validation\ValidationException::withMessages([
+                throw ValidationException::withMessages([
                     'assigned_loom_no' => 'This beam quality differs from the loom order.',
                 ]);
             }

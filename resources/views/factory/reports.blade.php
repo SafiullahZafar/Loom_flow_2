@@ -96,9 +96,9 @@
                         Loom
                         <select name="loom_no" class="w-full border border-[#e2e8e0] rounded-xl p-2.5 mt-1 text-xs bg-white">
                             <option value="">Not linked</option>
-                            @for($i=1;$i<=24;$i++)
-                                <option>{{ sprintf('Loom-%02d',$i) }}</option>
-                            @endfor
+                            @foreach($looms as $loom)
+                                <option value="{{ $loom }}">{{ $loom }}</option>
+                            @endforeach
                         </select>
                     </label>
                 </div>
@@ -162,9 +162,9 @@
                     <label class="block text-xs font-bold text-stone-700">
                         Loom
                         <select name="loom_no" class="w-full border border-[#e2e8e0] rounded-xl p-2.5 mt-1 text-xs bg-white">
-                            @for($i=1;$i<=24;$i++)
-                                <option>{{ sprintf('Loom-%02d',$i) }}</option>
-                            @endfor
+                            @foreach($looms as $loom)
+                                <option value="{{ $loom }}">{{ $loom }}</option>
+                            @endforeach
                         </select>
                     </label>
                     <label class="block text-xs font-bold text-stone-700">

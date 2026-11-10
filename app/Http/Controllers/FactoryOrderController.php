@@ -23,6 +23,7 @@ use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
@@ -32,6 +33,7 @@ class FactoryOrderController extends Controller
     {
         return view('factory.orders', [
             'fabrics' => FabricStock::orderBy('quality_name')->get(),
+            'looms' => config('loomflow.looms'),
             'customers' => Customer::where('status', 'active')->orderBy('name')->get(),
             'partas' => PartaRecord::with('fabricStock')->latest('id')->get()->unique('fabric_stock_id'),
             'orders' => WorkOrder::with(['fabricStock', 'contract', 'parta', 'customer'])->latest('id')->paginate(30),
@@ -149,7 +151,7 @@ class FactoryOrderController extends Controller
     {
         $data = $request->validate([
             'work_order_id' => 'required|exists:work_orders,id',
-            'loom_no' => ['required', 'string', 'regex:/^Loom-(0[1-9]|1[0-9]|2[0-4])$/'],
+            'loom_no' => ['required', 'string', Rule::in(config('loomflow.looms'))],
             'start_date' => 'required|date',
             'change_reason' => 'nullable|string|max:500',
         ]);
@@ -258,7 +260,7 @@ class FactoryOrderController extends Controller
             'sizing_beam_id' => 'required|exists:sizing_beams,id',
             'action' => 'required|in:mount,unmount,settle_reassign,return_customer',
             'work_order_id' => 'nullable|exists:work_orders,id',
-            'loom_no' => ['nullable', 'string', 'regex:/^Loom-(0[1-9]|1[0-9]|2[0-4])$/'],
+            'loom_no' => ['nullable', 'string', Rule::in(config('loomflow.looms'))],
             'event_date' => 'required|date',
             'initial_net_weight_kg' => 'nullable|numeric|gt:0',
             'remaining_weight_kg' => 'nullable|numeric|gt:0',

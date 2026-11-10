@@ -10,6 +10,7 @@ use App\Services\FactoryStockService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
@@ -19,6 +20,7 @@ class FactoryCheckingController extends Controller
     {
         return view('factory.checking', [
             'assignments' => LoomAssignment::with('order.fabricStock')->whereNull('end_date')->orderBy('loom_no')->get(),
+            'looms' => config('loomflow.looms'),
             'orders' => WorkOrder::with('fabricStock')->whereIn('status', ['active', 'fulfilled'])->orderBy('order_no')->get(),
             'rolls' => ThaanRoll::with('order.fabricStock')->latest('checked_on')->latest('id')->paginate(40),
             'loomMeters' => Production::selectRaw('loom_no, production_date, SUM(net_meters_produced) as loom_meters')
@@ -30,7 +32,7 @@ class FactoryCheckingController extends Controller
     {
         $data = $request->validate([
             'checked_on' => 'required|date',
-            'loom_no' => ['required', 'string', 'regex:/^Loom-(0[1-9]|1[0-9]|2[0-4])$/'],
+            'loom_no' => ['required', 'string', Rule::in(config('loomflow.looms'))],
             'rolls' => 'required|array|min:1|max:200',
             'rolls.*.roll_no' => 'required|string|max:100|distinct|unique:thaan_rolls,roll_no',
             'rolls.*.length_meters' => 'required|numeric|gt:0|max:100000',
