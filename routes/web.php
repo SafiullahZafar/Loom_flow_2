@@ -1,14 +1,14 @@
 <?php
 
-use App\Http\Controllers\FactoryOrderController;
-use App\Http\Controllers\FactoryCheckingController;
-use App\Http\Controllers\FactoryParchiController;
-use App\Http\Controllers\FactoryReportController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BagController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ExpenseController;
 use App\Http\Controllers\FabricStockController;
+use App\Http\Controllers\FactoryCheckingController;
+use App\Http\Controllers\FactoryOrderController;
+use App\Http\Controllers\FactoryParchiController;
+use App\Http\Controllers\FactoryReportController;
 use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\LedgerController;
 use App\Http\Controllers\PartController;
@@ -42,6 +42,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/factory/yarn', [FactoryOrderController::class, 'yarn'])->name('factory.yarn');
     Route::post('/factory/beam', [FactoryOrderController::class, 'beam'])->name('factory.beam');
     Route::post('/factory/orders/{order}/close', [FactoryOrderController::class, 'close'])->name('factory.order.close');
+    Route::get('/factory/orders/{order}/closing', [FactoryOrderController::class, 'closing'])->name('factory.order.closing');
     Route::get('/factory/checking', [FactoryCheckingController::class, 'index'])->name('factory.checking');
     Route::post('/factory/checking', [FactoryCheckingController::class, 'store'])->name('factory.checking.store');
     Route::get('/factory/parchis', [FactoryParchiController::class, 'index'])->name('factory.parchis');

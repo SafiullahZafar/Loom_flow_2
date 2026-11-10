@@ -5,7 +5,9 @@ namespace App\Http\Controllers;
 use App\Models\BagTransaction;
 use App\Models\BeamEvent;
 use App\Models\FabricStock;
+use App\Models\Invoice;
 use App\Models\LoomAssignment;
+use App\Models\PakkiParchi;
 use App\Models\PartaRecord;
 use App\Models\Production;
 use App\Models\SalesContract;
@@ -34,7 +36,7 @@ class FactoryOrderController extends Controller
             'activeOrders' => WorkOrder::with('fabricStock')->whereIn('status', ['active', 'fulfilled'])->latest('id')->get(),
             'existingContracts' => SalesContract::whereNotIn('id', WorkOrder::whereNotNull('sales_contract_id')->pluck('sales_contract_id'))->orderBy('contract_no')->get(),
             'assignments' => LoomAssignment::with(['order.fabricStock'])->whereNull('end_date')->orderBy('loom_no')->get(),
-            'beams' => SizingBeam::with('workOrder.contract')->where('status', '!=', 'exhausted')->orderBy('beam_no')->get(),
+            'beams' => SizingBeam::with('workOrder.contract')->whereNotIn('status', ['exhausted', 'returned_to_customer'])->orderBy('beam_no')->get(),
             'yarnBalances' => YarnMovement::selectRaw('work_order_id, component, owner_type, SUM(CASE WHEN movement_type IN (\'receipt\',\'return\',\'adjustment_in\') THEN weight_kg ELSE -weight_kg END) as balance_kg')->groupBy('work_order_id', 'component', 'owner_type')->get(),
             'recentBeams' => BeamEvent::with('beam')->latest('id')->limit(15)->get(),
         ]);
@@ -147,6 +149,13 @@ class FactoryOrderController extends Controller
             if ($data['start_date'] < $order->start_date) {
                 throw ValidationException::withMessages(['start_date' => 'Allocation cannot start before the order.']);
             }
+            $mountedBeam = SizingBeam::where('assigned_loom_no', $data['loom_no'])
+                ->where('status', 'mounted_on_loom')->lockForUpdate()->first();
+            if ($mountedBeam && (int) ($mountedBeam->work_order_id ?? 0) !== (int) $order->id) {
+                throw ValidationException::withMessages([
+                    'loom_no' => 'This loom still has beam '.$mountedBeam->beam_no.' from another order. Unmount it, return it to the customer, or settle and reassign it before assigning new work.',
+                ]);
+            }
             $current = LoomAssignment::where('loom_no', $data['loom_no'])->whereNull('end_date')->lockForUpdate()->first();
             if ($current) {
                 if ((int) $current->work_order_id === (int) $order->id) {
@@ -158,10 +167,6 @@ class FactoryOrderController extends Controller
                 $lastProduction = Production::where('loom_no', $data['loom_no'])->where('work_order_id', $current->work_order_id)->max('production_date');
                 if ($lastProduction && $data['start_date'] <= substr((string) $lastProduction, 0, 10)) {
                     throw ValidationException::withMessages(['start_date' => 'Use a later date than the previous contract production.']);
-                }
-                $mountedBeam = SizingBeam::where('assigned_loom_no', $data['loom_no'])->where('status', 'mounted_on_loom')->first();
-                if ($mountedBeam && (int) ($mountedBeam->work_order_id ?? $current->work_order_id) !== (int) $order->id) {
-                    throw ValidationException::withMessages(['loom_no' => 'First unmount the old beam or settle and reassign it. Its remaining length must be recorded.']);
                 }
                 $current->end_date = Carbon::parse($data['start_date'])->subDay()->toDateString();
                 $current->change_reason = $data['change_reason'] ?? 'Order switched';
@@ -239,7 +244,7 @@ class FactoryOrderController extends Controller
     {
         $data = $request->validate([
             'sizing_beam_id' => 'required|exists:sizing_beams,id',
-            'action' => 'required|in:mount,unmount,settle_reassign',
+            'action' => 'required|in:mount,unmount,settle_reassign,return_customer',
             'work_order_id' => 'nullable|exists:work_orders,id',
             'loom_no' => ['nullable', 'string', 'regex:/^Loom-(0[1-9]|1[0-9]|2[0-4])$/'],
             'event_date' => 'required|date',
@@ -250,7 +255,7 @@ class FactoryOrderController extends Controller
         ]);
         DB::transaction(function () use ($data, $ledgerPostingService): void {
             $beam = SizingBeam::whereKey($data['sizing_beam_id'])->lockForUpdate()->firstOrFail();
-            if ((float) $beam->remaining_length_meters <= 0) {
+            if ((float) $beam->remaining_length_meters <= 0 || $beam->status === 'returned_to_customer') {
                 throw ValidationException::withMessages(['sizing_beam_id' => 'An exhausted beam cannot be transferred.']);
             }
             $fromOrder = $beam->work_order_id;
@@ -269,6 +274,16 @@ class FactoryOrderController extends Controller
                 $toLoom = null;
                 $beam->assigned_loom_no = null;
                 $beam->status = 'ready_in_store';
+            } elseif ($data['action'] === 'return_customer') {
+                $returningOrder = $fromOrder ? WorkOrder::findOrFail($fromOrder) : null;
+                if (! $returningOrder || $returningOrder->type !== 'job' || ! in_array($returningOrder->warp_supply, ['customer', 'mixed'], true)) {
+                    throw ValidationException::withMessages(['action' => 'Only a customer-supplied job-work beam can be returned to a customer.']);
+                }
+                $toOrder = null;
+                $toLoom = null;
+                $beam->assigned_loom_no = null;
+                $beam->work_order_id = null;
+                $beam->status = 'returned_to_customer';
             } else {
                 if (! $toOrder || ! $toLoom) {
                     throw ValidationException::withMessages(['loom_no' => 'Choose the destination order and loom.']);
@@ -388,6 +403,31 @@ class FactoryOrderController extends Controller
             if (ThaanRoll::where('work_order_id', $order->id)->whereIn('status', ['returned_hold', 'returned_ready'])->exists()) {
                 throw ValidationException::withMessages(['closed_on' => 'Decide what to do with all returned Thaans before closing.']);
             }
+            $customerYarnBalances = YarnMovement::where('work_order_id', $order->id)
+                ->where('owner_type', 'customer')
+                ->selectRaw('component, SUM(CASE WHEN movement_type IN (?, ?, ?) THEN weight_kg ELSE -weight_kg END) as balance_kg', ['receipt', 'return', 'adjustment_in'])
+                ->groupBy('component')->get()
+                ->filter(fn ($movement): bool => (float) $movement->balance_kg > 0.001);
+            if ($customerYarnBalances->isNotEmpty()) {
+                throw ValidationException::withMessages(['closed_on' => 'Customer yarn is still in factory custody. Record its return or settlement in the yarn khata before closing.']);
+            }
+            $activeOrderLooms = LoomAssignment::where('work_order_id', $order->id)->whereNull('end_date')->pluck('loom_no');
+            $remainingBeams = SizingBeam::where('remaining_length_meters', '>', 0)
+                ->where(function ($query) use ($order, $activeOrderLooms): void {
+                    $query->where('work_order_id', $order->id)
+                        ->orWhere(function ($mountedQuery) use ($activeOrderLooms): void {
+                            $mountedQuery->where('status', 'mounted_on_loom')->whereIn('assigned_loom_no', $activeOrderLooms);
+                        });
+                })
+                ->where(function ($query) use ($order): void {
+                    $query->where('status', 'mounted_on_loom');
+                    if ($order->type === 'job' && in_array($order->warp_supply, ['customer', 'mixed'], true)) {
+                        $query->orWhere('status', 'ready_in_store');
+                    }
+                })->exists();
+            if ($remainingBeams) {
+                throw ValidationException::withMessages(['closed_on' => 'A beam is still mounted or customer-owned under this order. Unmount it and return it or settle and reassign it before closing.']);
+            }
             foreach (LoomAssignment::where('work_order_id', $order->id)->whereNull('end_date')->lockForUpdate()->get() as $assignment) {
                 if ($data['closed_on'] < $assignment->start_date) {
                     throw ValidationException::withMessages(['closed_on' => 'Closing date cannot precede a loom allocation.']);
@@ -402,5 +442,56 @@ class FactoryOrderController extends Controller
         });
 
         return back()->with('success', 'Order closed; all earlier production and settlement history is preserved.');
+    }
+
+    public function closing(WorkOrder $order): View
+    {
+        $order->load(['fabricStock', 'parta', 'contract']);
+        $kachis = $order->kachis()->with('pakki')->get();
+        $pakkiRows = PakkiParchi::with('invoice.allocations')
+            ->whereHas('kachi', fn ($query) => $query->where('work_order_id', $order->id))
+            ->get();
+        $invoiceIds = $pakkiRows->pluck('invoice_id')->filter()->unique();
+        $invoices = Invoice::with('allocations')->whereIn('id', $invoiceIds)->get();
+        $unpaidInvoices = $invoices->map(fn (Invoice $invoice): array => [
+            'invoice' => $invoice,
+            'paid' => (float) $invoice->allocations->sum('amount'),
+            'due' => max(0, (float) $invoice->total - (float) $invoice->allocations->sum('amount')),
+        ]);
+        $yarnBalances = YarnMovement::where('work_order_id', $order->id)
+            ->selectRaw('component, owner_type, SUM(CASE WHEN movement_type IN (?, ?, ?) THEN weight_kg ELSE -weight_kg END) as balance_kg', ['receipt', 'return', 'adjustment_in'])
+            ->groupBy('component', 'owner_type')->orderBy('component')->get();
+        $activeOrderLooms = LoomAssignment::where('work_order_id', $order->id)->whereNull('end_date')->pluck('loom_no');
+        $beams = SizingBeam::where(function ($query) use ($order, $activeOrderLooms): void {
+            $query->where('work_order_id', $order->id)
+                ->orWhere(function ($mountedQuery) use ($activeOrderLooms): void {
+                    $mountedQuery->where('status', 'mounted_on_loom')->whereIn('assigned_loom_no', $activeOrderLooms);
+                });
+        })
+            ->where('remaining_length_meters', '>', 0)
+            ->where(function ($query) use ($order): void {
+                $query->where('status', 'mounted_on_loom');
+                if ($order->type === 'job' && in_array($order->warp_supply, ['customer', 'mixed'], true)) {
+                    $query->orWhere('status', 'ready_in_store');
+                }
+            })->orderBy('beam_no')->get();
+        $returnedThaans = ThaanRoll::where('work_order_id', $order->id)
+            ->whereIn('status', ['returned_hold', 'returned_ready'])->orderBy('roll_no')->get();
+        $summary = [
+            'provisional_meters' => (float) Production::where('work_order_id', $order->id)->sum('net_meters_produced'),
+            'checked_meters' => (float) ThaanRoll::where('work_order_id', $order->id)->sum('length_meters'),
+            'dispatched_meters' => (float) $kachis->sum('dispatched_meters'),
+            'accepted_meters' => (float) $pakkiRows->sum('accepted_meters'),
+            'rejected_meters' => (float) $pakkiRows->sum('rejected_meters'),
+            'billed_amount' => (float) $pakkiRows->sum('bill_amount'),
+            'unpaid_amount' => (float) $unpaidInvoices->sum('due'),
+        ];
+        $customerYarnOutstanding = $yarnBalances->contains(fn ($movement): bool => $movement->owner_type === 'customer' && (float) $movement->balance_kg > 0.001);
+        $beamOutstanding = $beams->isNotEmpty();
+        $canClose = $order->status !== 'closed' && ! $customerYarnOutstanding && ! $beamOutstanding && $returnedThaans->isEmpty();
+
+        return view('factory.closing', compact(
+            'order', 'summary', 'unpaidInvoices', 'yarnBalances', 'beams', 'returnedThaans', 'canClose'
+        ));
     }
 }

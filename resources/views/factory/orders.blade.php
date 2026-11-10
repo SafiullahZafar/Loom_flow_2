@@ -195,16 +195,9 @@
                             </td>
                             <td class="p-3">
                                 @if($o->status !== 'closed')
-                                    <form method="POST" action="{{ route('factory.order.close', $o) }}" class="flex flex-col gap-1.5">
-                                        @csrf
-                                        <input name="closed_on" type="date" value="{{ date('Y-m-d') }}" class="border border-[#e2e8e0] rounded-lg p-1 text-[11px]" required>
-                                        <input name="closure_reason" placeholder="Reason if early" class="border border-[#e2e8e0] rounded-lg p-1 text-[11px]">
-                                        <button class="bg-[#133e2b] hover:bg-rose-700 text-white rounded-lg p-1 text-[11px] font-bold transition-colors" onclick="return confirm('Close this order? Any remaining rejected fabric must be settled first.')">
-                                            Close
-                                        </button>
-                                    </form>
+                                    <a href="{{ route('factory.order.closing', $o) }}" class="inline-flex rounded-lg bg-[#133e2b] px-3 py-2 text-[11px] font-bold text-white hover:bg-[#1b5239]">Review &amp; close</a>
                                 @else
-                                    <span class="text-stone-400 text-[11px]">{{ $o->closed_on }}</span>
+                                    <a href="{{ route('factory.order.closing', $o) }}" class="text-[11px] font-bold text-[#15803d]">View close summary</a>
                                 @endif
                             </td>
                         </tr>
@@ -312,6 +305,7 @@
                         <option value="mount">Mount / Transfer to another loom (same order)</option>
                         <option value="unmount">Unmount to Store</option>
                         <option value="settle_reassign">Settle customer yarn and reassign to another order</option>
+                        <option value="return_customer">Return customer beam and remaining yarn</option>
                     </select>
                 </label>
 
