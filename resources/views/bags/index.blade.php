@@ -109,8 +109,11 @@
                 <svg class="h-3.5 w-3.5 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
                 </svg>
-                New Purchase
+                Buy Bags
             </button>
+            <a href="{{ route('bags.split') }}" class="flex items-center gap-2 w-full rounded-xl px-3 py-2 text-[11px] font-bold text-zinc-700 hover:bg-zinc-100 transition-colors">
+                Split Existing Bags
+            </a>
             <button type="button" onclick="openModal('modalIssueStock')"
                     class="flex items-center gap-2 w-full rounded-xl px-3 py-2 text-[11px] font-bold text-zinc-700 hover:bg-zinc-100 transition-colors">
                 <svg class="h-3.5 w-3.5 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -148,8 +151,9 @@
         <div class="flex flex-wrap items-center gap-2.5">
             <button type="button" onclick="openModal('modalNewPurchase')" class="px-4 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-700 text-zinc-50 font-extrabold text-xs shadow-sm transition-all flex items-center gap-2">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-                <span>+ New Bag Purchase (Split)</span>
+                <span>Buy Bags</span>
             </button>
+            <a href="{{ route('bags.split') }}" class="px-3.5 py-2 rounded-xl bg-white hover:bg-zinc-50 text-zinc-700 border border-zinc-300 text-xs font-bold transition-colors">Split Existing Bags</a>
             <button type="button" onclick="openModal('modalIssueStock')" class="px-3.5 py-2 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-700 border border-zinc-300 text-xs font-bold transition-colors flex items-center gap-1.5">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
                 <span>Issue Bags Daily</span>
@@ -282,7 +286,7 @@
                             <td class="px-4 py-3 font-mono font-bold text-zinc-900">{{ $p->challan_no }}</td>
                             <td class="px-4 py-3 text-zinc-500">{{ $p->purchase_date->format('d M, Y') }}</td>
                             <td class="px-4 py-3 font-semibold text-zinc-800">{{ $p->supplier_name }}</td>
-                            <td class="px-4 py-3"><span class="px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-700 font-mono text-[11px]">{{ $p->quality }}</span></td>
+                            <td class="px-4 py-3"><span class="px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-700 font-mono text-[11px]">{{ $p->quality }}</span><span class="block mt-1 text-[10px] text-zinc-500">{{ number_format((int) $p->cones_per_bag) }} cones / bag</span></td>
                             <td class="px-4 py-3 text-right font-black text-zinc-900">{{ number_format((float) $p->total_bags, 2) }}</td>
                             <td class="px-4 py-3 text-center font-bold font-mono text-zinc-800 bg-zinc-50 border-x border-zinc-200">
                                 {{ number_format((float) $p->bags_to_sizing, 2) }}
@@ -496,6 +500,7 @@
         </div>
         <form action="{{ route('bags.purchase') }}" method="POST" class="mt-4 space-y-4">
             @csrf
+            <input type="hidden" name="purchase_form" value="bag_purchase">
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                     <label class="block text-xs font-semibold text-zinc-600 mb-1">Challan / Invoice # *</label>
@@ -503,7 +508,7 @@
                 </div>
                 <div>
                     <label class="block text-xs font-semibold text-zinc-600 mb-1">Purchase Date *</label>
-                    <input type="date" name="purchase_date" required value="{{ date('Y-m-d') }}" class="w-full bg-zinc-50 border border-zinc-300 rounded-xl px-3 py-2 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-500">
+                    <input type="date" name="purchase_date" required value="{{ old('purchase_date', date('Y-m-d')) }}" class="w-full bg-zinc-50 border border-zinc-300 rounded-xl px-3 py-2 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-500">
                 </div>
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -516,7 +521,7 @@
                     <div class="flex gap-2">
                         <select name="quality" required data-yarn-quality-select class="min-w-0 flex-1 bg-zinc-50 border border-zinc-300 rounded-xl px-3 py-2 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-500">
                             <option value="">Select yarn quality</option>
-                            @foreach($yarnQualities as $yarnQuality)<option value="{{ $yarnQuality->name }}">{{ $yarnQuality->name }}</option>@endforeach
+                            @foreach($yarnQualities as $yarnQuality)<option value="{{ $yarnQuality->name }}" @selected(old('quality') === $yarnQuality->name)>{{ $yarnQuality->name }}</option>@endforeach
                         </select>
                         <button type="button" onclick="openModal('modalYarnQualities')" class="shrink-0 rounded-xl border border-zinc-300 bg-white px-3 py-2 text-xs font-bold text-zinc-700 transition-colors hover:bg-zinc-100">+ Create</button>
                     </div>
@@ -525,14 +530,33 @@
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                     <label class="block text-xs font-semibold text-zinc-600 mb-1">Total Bags Purchased *</label>
-                    <input type="number" step="0.01" id="inpTotalBags" name="total_bags" required min="0.01" placeholder="100" oninput="calculateSplit()" class="w-full bg-zinc-50 border border-zinc-300 rounded-xl px-3 py-2 text-sm text-zinc-900 font-mono font-bold focus:outline-none focus:ring-2 focus:ring-zinc-500">
+                    <input type="number" step="0.01" id="inpTotalBags" name="total_bags" required min="0.01" placeholder="100" value="{{ old('total_bags') }}" oninput="calculateSplit()" class="w-full bg-zinc-50 border border-zinc-300 rounded-xl px-3 py-2 text-sm text-zinc-900 font-mono font-bold focus:outline-none focus:ring-2 focus:ring-zinc-500">
                 </div>
                 <div>
                     <label class="block text-xs font-semibold text-zinc-600 mb-1">Rate Per Bag (Rs.) *</label>
-                    <input type="number" step="0.01" id="inpRatePerBag" name="rate_per_bag" required min="0" placeholder="14500" oninput="calculateSplit()" class="w-full bg-zinc-50 border border-zinc-300 rounded-xl px-3 py-2 text-sm text-zinc-900 font-mono focus:outline-none focus:ring-2 focus:ring-zinc-500">
+                    <input type="number" step="0.01" id="inpRatePerBag" name="rate_per_bag" required min="0" placeholder="14500" value="{{ old('rate_per_bag') }}" oninput="calculateSplit()" class="w-full bg-zinc-50 border border-zinc-300 rounded-xl px-3 py-2 text-sm text-zinc-900 font-mono focus:outline-none focus:ring-2 focus:ring-zinc-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-zinc-600 mb-1">Cones in Each Bag *</label>
+                    <input type="number" name="cones_per_bag" required min="1" max="1000" step="1" placeholder="e.g. 48" value="{{ old('cones_per_bag') }}" class="w-full bg-zinc-50 border border-zinc-300 rounded-xl px-3 py-2 text-sm text-zinc-900 font-mono focus:outline-none focus:ring-2 focus:ring-zinc-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-zinc-600 mb-1">Paid From Account *</label>
+                    <select name="financial_account_id" required class="w-full bg-zinc-50 border border-zinc-300 rounded-xl px-3 py-2 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-500">
+                        <option value="">Select cash / bank account</option>
+                        @foreach($activeAccounts as $account)<option value="{{ $account->id }}" @selected((string) old('financial_account_id') === (string) $account->id)>{{ $account->name }}</option>@endforeach
+                    </select>
                 </div>
             </div>
             <div class="p-4 rounded-2xl bg-zinc-50 border border-zinc-200 space-y-3">
+                @if($errors->any() && old('purchase_form') === 'bag_purchase')
+                    <div class="rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-800">
+                        <p class="font-bold">Please correct the purchase details below:</p>
+                        <ul class="mt-1 list-inside list-disc">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul>
+                    </div>
+                @elseif(session('error') && old('purchase_form') === 'bag_purchase')
+                    <div class="rounded-xl border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-800">{{ session('error') }}</div>
+                @endif
                 <div class="flex items-center justify-between">
                     <span class="text-xs font-bold uppercase tracking-wider text-zinc-600">📦 Dispatch Split: Sizing vs Factory</span>
                     <span id="splitStatus" class="text-xs font-bold font-mono text-zinc-500">Total: 0 Bags</span>
@@ -540,19 +564,21 @@
                 <div class="grid grid-cols-2 gap-3">
                     <div>
                         <label class="block text-[11px] font-semibold text-zinc-600 mb-1">Direct to Sizing (Bags)</label>
-                        <input type="number" step="0.01" id="inpBagsToSizing" name="bags_to_sizing" value="0" min="0" oninput="validateSplitNumbers(); updateSizingDestination(); updateSizingBagWeight()" class="w-full bg-white border border-zinc-300 rounded-xl px-3 py-2 text-sm text-zinc-900 font-mono font-bold focus:outline-none focus:ring-2 focus:ring-zinc-500">
-                        <span class="text-[10px] text-zinc-400">Directly sent to sizing mill</span>
+                        <input type="number" step="0.01" id="inpBagsToSizing" name="bags_to_sizing" value="{{ old('bags_to_sizing', 0) }}" min="0" oninput="markPurchaseSplitAsManual()" class="w-full bg-white border border-zinc-300 rounded-xl px-3 py-2 text-sm text-zinc-900 font-mono font-bold focus:outline-none focus:ring-2 focus:ring-zinc-500">
+                        <span class="text-[10px] text-zinc-400">Leave 0 or blank if none are sent directly</span>
+                        @error('bags_to_sizing')<span class="mt-1 block text-[10px] font-semibold text-red-700">{{ $message }}</span>@enderror
                         <span id="displaySizingBagWeight" class="block text-[10px] font-semibold text-zinc-600">0 bags · 0.00 kg / 0 lb</span>
                     </div>
                     <div>
                         <label class="block text-[11px] font-semibold text-zinc-600 mb-1">To Factory Godown (Bags)</label>
-                        <input type="number" step="0.01" id="inpBagsToFactory" name="bags_to_factory" value="0" min="0" oninput="validateSplitNumbers()" class="w-full bg-white border border-zinc-300 rounded-xl px-3 py-2 text-sm text-zinc-900 font-mono font-bold focus:outline-none focus:ring-2 focus:ring-zinc-500">
+                        <input type="number" step="0.01" id="inpBagsToFactory" name="bags_to_factory" value="{{ old('bags_to_factory', 0) }}" min="0" oninput="markPurchaseSplitAsManual()" class="w-full bg-white border border-zinc-300 rounded-xl px-3 py-2 text-sm text-zinc-900 font-mono font-bold focus:outline-none focus:ring-2 focus:ring-zinc-500">
                         <span class="text-[10px] text-zinc-400">Stored in mill warehouse</span>
                     </div>
                 </div>
                 <div id="sizingDestinationWrap" class="hidden">
                     <label class="block text-[11px] font-semibold text-zinc-600 mb-1">Sizing Mill / Contractor *</label>
-                    <input type="text" id="inpSizingDestination" name="sizing_destination" placeholder="e.g. National Sizing Mill" class="w-full bg-white border border-zinc-300 rounded-xl px-3 py-2 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-500">
+                    <input type="text" id="inpSizingDestination" name="sizing_destination" value="{{ old('sizing_destination') }}" placeholder="e.g. National Sizing Mill" class="w-full bg-white border border-zinc-300 rounded-xl px-3 py-2 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-500">
+                    @error('sizing_destination')<span class="mt-1 block text-[10px] font-semibold text-red-700">{{ $message }}</span>@enderror
                     <span class="mt-1 block text-[10px] text-zinc-500">This will appear as a pending sizing entry with the bag quantity and quality already filled.</span>
                 </div>
                 <div class="pt-2 border-t border-zinc-200 flex items-center justify-between text-xs">
@@ -562,7 +588,7 @@
             </div>
             <div>
                 <label class="block text-xs font-semibold text-zinc-600 mb-1">Notes / Contract Details</label>
-                <textarea name="notes" rows="2" placeholder="e.g. Contract #889, direct dispatch" class="w-full bg-zinc-50 border border-zinc-300 rounded-xl px-3 py-2 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-500"></textarea>
+                <textarea name="notes" rows="2" placeholder="e.g. Contract #889, direct dispatch" class="w-full bg-zinc-50 border border-zinc-300 rounded-xl px-3 py-2 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-500">{{ old('notes') }}</textarea>
             </div>
             <div class="pt-3 border-t border-zinc-100 flex justify-end gap-3">
                 <button type="button" onclick="closeModal('modalNewPurchase')" class="px-4 py-2 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-600 text-xs font-semibold">Cancel</button>
@@ -713,6 +739,8 @@
 
 @push('scripts')
 <script>
+    let purchaseSplitManuallyAdjusted = false;
+
     function updateSizingDestination() {
         const quantity = parseFloat(document.getElementById('inpBagsToSizing').value) || 0;
         const wrap = document.getElementById('sizingDestinationWrap');
@@ -733,9 +761,7 @@
 
     function calculateSplit() {
         const total = parseFloat(document.getElementById('inpTotalBags').value) || 0;
-        const sizing = parseFloat(document.getElementById('inpBagsToSizing').value) || 0;
-        const factory = parseFloat(document.getElementById('inpBagsToFactory').value) || 0;
-        if (sizing === 0 && factory === 0 && total > 0) {
+        if (!purchaseSplitManuallyAdjusted) {
             const half = Math.floor(total * 50) / 100;
             document.getElementById('inpBagsToSizing').value = half;
             document.getElementById('inpBagsToFactory').value = total - half;
@@ -743,6 +769,13 @@
         updateSizingDestination();
         updateSizingBagWeight();
         validateSplitNumbers();
+    }
+
+    function markPurchaseSplitAsManual() {
+        purchaseSplitManuallyAdjusted = true;
+        validateSplitNumbers();
+        updateSizingDestination();
+        updateSizingBagWeight();
     }
 
     function validateSplitNumbers() {
@@ -766,6 +799,14 @@
             submitBtn.classList.add('opacity-50', 'cursor-not-allowed');
         }
     }
+
+    updateSizingDestination();
+    updateSizingBagWeight();
+    validateSplitNumbers();
+    @if(old('purchase_form') === 'bag_purchase')
+        purchaseSplitManuallyAdjusted = true;
+        openModal('modalNewPurchase');
+    @endif
 </script>
 @endpush
 @include('yarn-qualities.modal')

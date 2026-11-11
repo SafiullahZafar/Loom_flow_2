@@ -2,8 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AccountTransaction;
 use App\Models\BagPurchase;
 use App\Models\BagTransaction;
+use App\Models\Expense;
+use App\Models\FinancialAccount;
 use App\Models\SalesContract;
 use App\Models\SizingSlip;
 use App\Models\WorkOrder;
@@ -38,6 +41,11 @@ class BagController extends Controller
             collect(),
             collect()
         );
+    }
+
+    public function split(): View
+    {
+        return $this->renderPage('split', collect(), collect(), collect());
     }
 
     public function ledger(): View
@@ -108,6 +116,11 @@ class BagController extends Controller
         $totalYarnInvestment = BagPurchase::sum('total_amount');
         $yarnQualities = YarnQuality::orderBy('name')->get();
         $activeWorkOrders = WorkOrder::whereIn('status', ['active', 'fulfilled'])->orderByDesc('id')->get();
+        $activeAccounts = FinancialAccount::where('is_active', true)->orderBy('type')->orderBy('name')->get();
+
+        if ($page === 'split') {
+            return view('bags.split', compact('yarnQualities', 'qualityBalances'));
+        }
 
         return view('bags.index', compact(
             'page',
@@ -123,7 +136,7 @@ class BagController extends Controller
             'unusedBagsReturned',
             'unusedBagsHeldWithSizing',
             'totalYarnInvestment',
-            'yarnQualities', 'qualityBalances', 'activeWorkOrders'
+            'yarnQualities', 'qualityBalances', 'activeWorkOrders', 'activeAccounts'
         ));
     }
 
@@ -134,13 +147,18 @@ class BagController extends Controller
             'supplier_name' => 'required|string|max:150',
             'quality' => 'required|string|exists:yarn_qualities,name',
             'total_bags' => 'required|numeric|min:0.01|decimal:0,2',
-            'bags_to_sizing' => 'required|numeric|min:0|decimal:0,2',
-            'bags_to_factory' => 'required|numeric|min:0|decimal:0,2',
+            'cones_per_bag' => 'required|integer|min:1|max:1000',
+            'bags_to_sizing' => 'nullable|numeric|min:0|decimal:0,2',
+            'bags_to_factory' => 'nullable|numeric|min:0|decimal:0,2',
             'sizing_destination' => 'nullable|string|max:150',
             'rate_per_bag' => 'required|numeric|min:0',
+            'financial_account_id' => 'required|exists:financial_accounts,id,is_active,1',
             'purchase_date' => 'required|date',
             'notes' => 'nullable|string',
         ]);
+
+        $validated['bags_to_sizing'] = $validated['bags_to_sizing'] ?? 0;
+        $validated['bags_to_factory'] = $validated['bags_to_factory'] ?? 0;
 
         if (round($validated['bags_to_sizing'] + $validated['bags_to_factory'], 2) !== round($validated['total_bags'], 2)) {
             return back()->withInput()->with('error', 'Error: Split bags (Sizing + Factory) must exactly equal Total Bags ('.$validated['total_bags'].').');
@@ -156,6 +174,8 @@ class BagController extends Controller
         $validated['total_amount'] = $totalAmount;
 
         $purchase = DB::transaction(function () use ($validated, $totalAmount, $ledgerPostingService): BagPurchase {
+            $account = FinancialAccount::whereKey($validated['financial_account_id'])->where('is_active', true)->lockForUpdate()->firstOrFail();
+            unset($validated['financial_account_id']);
             $purchase = BagPurchase::create([...$validated, 'total_amount' => $totalAmount]);
 
             foreach ([
@@ -171,6 +191,7 @@ class BagController extends Controller
                     'reference_no' => $purchase->challan_no,
                     'quality' => $purchase->quality,
                     'quantity_bags' => $purchase->{$movement['quantity']},
+                    'cones_per_bag' => $purchase->cones_per_bag,
                     'source' => $purchase->supplier_name,
                     'destination' => $movement['destination'],
                     'party_name' => $movement['party'],
@@ -178,6 +199,31 @@ class BagController extends Controller
                     'notes' => $movement['notes'],
                 ]);
             }
+
+            $expense = Expense::create([
+                'financial_account_id' => $account->id,
+                'expense_type' => 'variable',
+                'title' => 'Yarn bag purchase - '.$purchase->quality,
+                'expense_date' => $purchase->purchase_date,
+                'amount' => $totalAmount,
+                'payee' => $purchase->supplier_name,
+                'reference' => $purchase->challan_no,
+                'notes' => trim("{$purchase->total_bags} bags at Rs. {$purchase->rate_per_bag} per bag. ".($purchase->notes ?? '')),
+            ]);
+            $purchase->update(['expense_id' => $expense->id]);
+            AccountTransaction::create([
+                'financial_account_id' => $account->id,
+                'expense_id' => $expense->id,
+                'transaction_date' => $expense->expense_date,
+                'direction' => 'out',
+                'amount' => $totalAmount,
+                'description' => 'Variable expense: '.$expense->title,
+                'reference' => $expense->reference,
+            ]);
+            $ledgerPostingService->post('expense', $expense->id, [
+                ['role' => 'expense', 'party_name' => $expense->payee, 'party_type' => 'expense', 'transaction_date' => $expense->expense_date, 'voucher_no' => $expense->reference, 'description' => 'Variable expense: '.$expense->title, 'debit' => $totalAmount, 'credit' => 0, 'notes' => $expense->notes],
+                ['role' => 'account', 'party_name' => $account->name, 'party_type' => 'cash_bank', 'transaction_date' => $expense->expense_date, 'voucher_no' => $expense->reference, 'description' => 'Payment for '.$expense->title, 'debit' => 0, 'credit' => $totalAmount, 'notes' => $expense->notes],
+            ]);
 
             $ledgerPostingService->post('bag_purchase', $purchase->id, [
                 [
@@ -217,6 +263,7 @@ class BagController extends Controller
             'reference_no' => 'required|string|max:100',
             'quality' => 'required|string|exists:yarn_qualities,name',
             'quantity_bags' => 'required|numeric|min:0.01|decimal:0,2',
+            'cones_per_bag' => 'nullable|integer|min:1|max:1000',
             'destination' => 'required|string|max:150',
             'party_name' => 'required|string|max:150',
             'transaction_date' => 'required|date',

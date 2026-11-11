@@ -14,11 +14,13 @@ class BagPurchase extends Model
         'supplier_name',
         'quality',
         'total_bags',
+        'cones_per_bag',
         'bags_to_sizing',
         'bags_to_factory',
         'sizing_destination',
         'rate_per_bag',
         'total_amount',
+        'expense_id',
         'purchase_date',
         'notes',
     ];
@@ -28,6 +30,7 @@ class BagPurchase extends Model
         'rate_per_bag' => 'decimal:2',
         'total_amount' => 'decimal:2',
         'total_bags' => 'decimal:2',
+        'cones_per_bag' => 'integer',
         'bags_to_sizing' => 'decimal:2',
         'bags_to_factory' => 'decimal:2',
     ];
