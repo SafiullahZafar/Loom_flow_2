@@ -10,8 +10,6 @@
         </div>
     </header>
 
-    @include('factory._nav')
-
     <div class="grid lg:grid-cols-5 gap-6">
         
         <!-- ENTER OFFICE CHECKING REPORT (3 Cols) -->

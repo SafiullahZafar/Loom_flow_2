@@ -10,8 +10,6 @@
         </div>
     </header>
 
-    @include('factory._nav')
-
     <div class="grid lg:grid-cols-2 gap-6">
         
         <!-- 1. NEW KACHI PARCHI -->

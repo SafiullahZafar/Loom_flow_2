@@ -10,8 +10,6 @@
         </div>
     </header>
 
-    @include('factory._nav')
-
     <!-- ORDER-WISE PRODUCTION AND PARTY HISAAB -->
     <section class="card p-6 space-y-4 shadow-2xs">
         <div class="pb-3 border-b border-[#e2e8e0]">

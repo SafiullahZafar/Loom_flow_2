@@ -13,8 +13,6 @@
         <a href="{{ route('factory.orders') }}" class="rounded-xl border border-stone-200 bg-white px-4 py-2 text-xs font-bold text-stone-700">Back to orders</a>
     </header>
 
-    @include('factory._nav')
-
     @if($errors->any())
         <div class="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800"><strong>Resolve before closing:</strong><ul class="mt-2 list-disc pl-5">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>
     @endif
