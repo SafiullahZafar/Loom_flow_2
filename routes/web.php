@@ -39,7 +39,6 @@ Route::middleware('auth')->group(function () {
     Route::post('/factory/parta', [FactoryOrderController::class, 'parta'])->name('factory.parta');
     Route::post('/factory/orders', [FactoryOrderController::class, 'store'])->name('factory.order.store');
     Route::post('/factory/looms/assign', [FactoryOrderController::class, 'assign'])->name('factory.loom.assign');
-    Route::post('/factory/yarn', [FactoryOrderController::class, 'yarn'])->name('factory.yarn');
     Route::post('/factory/beam', [FactoryOrderController::class, 'beam'])->name('factory.beam');
     Route::post('/factory/orders/{order}/close', [FactoryOrderController::class, 'close'])->name('factory.order.close');
     Route::get('/factory/orders/{order}/closing', [FactoryOrderController::class, 'closing'])->name('factory.order.closing');

@@ -423,6 +423,10 @@
             </table>
         </div>
 
+        @if($page === 'beams')
+            @include('factory._loom_beam_controls')
+        @endif
+
         @foreach($beams as $beamRecord)
             @if($beamRecord->sizingSlip)
                 @php

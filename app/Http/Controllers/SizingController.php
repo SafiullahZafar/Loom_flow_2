@@ -120,6 +120,11 @@ class SizingController extends Controller
         $yarnQualities = YarnQuality::orderBy('name')->get();
 
         $looms = config('loomflow.looms');
+        $activeOrders = WorkOrder::with('fabricStock')->whereIn('status', ['active', 'fulfilled'])->latest('id')->get();
+        $assignments = LoomAssignment::with('order.fabricStock')->whereNull('end_date')->orderBy('loom_no')->get();
+        $transferBeams = SizingBeam::with(['workOrder.contract', 'workOrder.parta'])
+            ->whereNotIn('status', ['exhausted', 'returned_to_customer'])->orderBy('beam_no')->get();
+        $recentBeams = BeamEvent::with('beam')->latest('id')->limit(15)->get();
 
         return view('sizing.index', compact(
             'page',
@@ -139,7 +144,11 @@ class SizingController extends Controller
             'pendingSizingTransactions',
             'kilogramsPerBag',
             'yarnQualities',
-            'looms'
+            'looms',
+            'activeOrders',
+            'assignments',
+            'transferBeams',
+            'recentBeams'
         ));
     }
 

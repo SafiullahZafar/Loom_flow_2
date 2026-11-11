@@ -16,7 +16,6 @@ use App\Models\SizingBeam;
 use App\Models\ThaanRoll;
 use App\Models\WorkOrder;
 use App\Models\YarnMovement;
-use App\Models\YarnQuality;
 use App\Services\LedgerPostingService;
 use App\Services\PartaService;
 use Carbon\Carbon;
@@ -33,30 +32,50 @@ class FactoryOrderController extends Controller
     {
         return view('factory.orders', [
             'fabrics' => FabricStock::orderBy('quality_name')->get(),
-            'looms' => config('loomflow.looms'),
             'customers' => Customer::where('status', 'active')->orderBy('name')->get(),
             'partas' => PartaRecord::with('fabricStock')->latest('id')->get()->unique('fabric_stock_id'),
             'orders' => WorkOrder::with(['fabricStock', 'contract', 'parta', 'customer'])->latest('id')->paginate(30),
-            'activeOrders' => WorkOrder::with('fabricStock')->whereIn('status', ['active', 'fulfilled'])->latest('id')->get(),
-            'existingContracts' => SalesContract::with('customer')->whereNotIn('id', WorkOrder::whereNotNull('sales_contract_id')->pluck('sales_contract_id'))->orderBy('contract_no')->get(),
-            'assignments' => LoomAssignment::with(['order.fabricStock'])->whereNull('end_date')->orderBy('loom_no')->get(),
-            'beams' => SizingBeam::with('workOrder.contract')->whereNotIn('status', ['exhausted', 'returned_to_customer'])->orderBy('beam_no')->get(),
-            'yarnBalances' => YarnMovement::selectRaw('work_order_id, component, owner_type, SUM(CASE WHEN movement_type IN (\'receipt\',\'return\',\'adjustment_in\') THEN weight_kg ELSE -weight_kg END) as balance_kg')->groupBy('work_order_id', 'component', 'owner_type')->get(),
-            'recentBeams' => BeamEvent::with('beam')->latest('id')->limit(15)->get(),
+            'orderBagReceipts' => BagTransaction::query()
+                ->selectRaw('work_order_id, SUM(quantity_bags) as bags_received, SUM(net_weight_kg) as weight_received_kg')
+                ->whereIn('transaction_type', ['issue_to_sizing', 'customer_sizing_receipt'])
+                ->whereNotNull('work_order_id')->groupBy('work_order_id')->get()->keyBy('work_order_id'),
+            'existingContracts' => SalesContract::with(['customer', 'fabricStock'])
+                ->where('contract_type', 'Conversion')
+                ->whereNotIn('id', WorkOrder::whereNotNull('sales_contract_id')->pluck('sales_contract_id'))
+                ->orderBy('contract_no')->get(),
         ]);
     }
 
     public function parta(Request $request, PartaService $parta): RedirectResponse
     {
+        if ($request->filled('quality_name')) {
+            $request->merge(['quality_name' => trim((string) $request->input('quality_name'))]);
+        }
+
         $data = $request->validate([
-            'fabric_stock_id' => 'required|exists:fabric_stocks,id',
+            'quality_mode' => 'required|in:existing,new',
+            'fabric_stock_id' => 'required_if:quality_mode,existing|nullable|exists:fabric_stocks,id',
+            'quality_name' => 'required_if:quality_mode,new|nullable|string|max:150|unique:fabric_stocks,quality_name',
             'read' => 'required|numeric|gt:0', 'pick' => 'required|numeric|gt:0',
             'width_inches' => 'required|numeric|gt:0',
             'warp_count' => 'required|numeric|gt:0', 'weft_count' => 'required|numeric|gt:0',
             'warp_rate_per_lb' => 'required|numeric|min:0', 'weft_rate_per_lb' => 'required|numeric|min:0',
             'conversion_rate_per_pick' => 'required|numeric|min:0',
         ]);
-        DB::transaction(fn () => $parta->save(FabricStock::findOrFail($data['fabric_stock_id']), $data));
+        DB::transaction(function () use ($data, $parta): void {
+            $fabric = $data['quality_mode'] === 'new'
+                ? FabricStock::create([
+                    'quality_name' => trim($data['quality_name']),
+                    'width_inches' => $data['width_inches'],
+                    'read' => $data['read'],
+                    'pick' => $data['pick'],
+                    'warp_count' => $data['warp_count'],
+                    'weft_count' => $data['weft_count'],
+                ])
+                : FabricStock::findOrFail($data['fabric_stock_id']);
+
+            $parta->save($fabric, $data);
+        });
 
         return back()->with('success', 'Parta saved with weight and cost per metre. Existing order costing remains unchanged.');
     }
@@ -68,12 +87,10 @@ class FactoryOrderController extends Controller
             'type' => 'required|in:own,job',
             'fabric_stock_id' => 'required|exists:fabric_stocks,id',
             'target_meters' => 'nullable|numeric|gt:0',
-            'customer_id' => 'nullable|required_if:type,job|exists:customers,id',
+            'customer_id' => 'nullable|exists:customers,id',
             'existing_contract_id' => 'nullable|exists:sales_contracts,id',
             'contract_no' => 'nullable|string|max:100|unique:sales_contracts,contract_no',
             'rate_per_pick' => 'nullable|numeric|min:0',
-            'warp_supply' => 'required|in:customer,factory,mixed',
-            'weft_supply' => 'required|in:customer,factory,mixed',
             'start_date' => 'required|date',
             'notes' => 'nullable|string|max:2000',
         ]);
@@ -99,10 +116,17 @@ class FactoryOrderController extends Controller
                     if ((int) $contract->fabric_stock_id !== (int) $fabric->id) {
                         throw ValidationException::withMessages(['existing_contract_id' => 'The contract quality does not match.']);
                     }
-                    if ($contract->customer_id && (int) $contract->customer_id !== (int) $data['customer_id']) {
+                    if ($contract->customer_id && ! empty($data['customer_id']) && (int) $contract->customer_id !== (int) $data['customer_id']) {
                         throw ValidationException::withMessages(['customer_id' => 'Choose the customer linked to this contract.']);
                     }
-                    $customer = Customer::findOrFail($data['customer_id']);
+                    $customer = $contract->customer ?? Customer::query()
+                        ->where('name', $contract->buyer_name)->first();
+                    if (! $customer && ! empty($data['customer_id'])) {
+                        $customer = Customer::find($data['customer_id']);
+                    }
+                    if (! $customer) {
+                        throw ValidationException::withMessages(['customer_id' => 'Select the customer for this contract.']);
+                    }
                     $contract->customer_id ??= $customer->id;
                     $contract->buyer_name = $customer->name;
                     $contract->buyer_phone = $customer->phone;
@@ -113,6 +137,9 @@ class FactoryOrderController extends Controller
                 } else {
                     if (blank($data['contract_no'] ?? null) || ! $target) {
                         throw ValidationException::withMessages(['contract_no' => 'Job work requires a contract number and target quantity.']);
+                    }
+                    if (empty($data['customer_id'])) {
+                        throw ValidationException::withMessages(['customer_id' => 'Choose a customer for the new job-work contract.']);
                     }
                     $customer = Customer::findOrFail($data['customer_id']);
                     $party = $customer->name;
@@ -138,13 +165,13 @@ class FactoryOrderController extends Controller
                 'sales_contract_id' => $contract?->id, 'fabric_stock_id' => $fabric->id,
                 'customer_id' => $contract?->customer_id, 'parta_record_id' => $parta->id, 'party_name' => $party,
                 'target_meters' => $target, 'rate_per_pick' => $rate,
-                'warp_supply' => $data['type'] === 'own' ? 'factory' : $data['warp_supply'],
-                'weft_supply' => $data['type'] === 'own' ? 'factory' : $data['weft_supply'],
+                'warp_supply' => $data['type'] === 'own' ? 'factory' : 'mixed',
+                'weft_supply' => $data['type'] === 'own' ? 'factory' : 'mixed',
                 'start_date' => $data['start_date'], 'notes' => $data['notes'] ?? null,
             ]);
         });
 
-        return back()->with('success', 'Order created. Allocate one or more looms to begin tracking production.');
+        return back()->with('success', 'Order created. Assign it to a loom in Sizing > Beams Tracking to begin production.');
     }
 
     public function assign(Request $request): RedirectResponse
@@ -193,65 +220,6 @@ class FactoryOrderController extends Controller
         });
 
         return back()->with('success', 'Loom allocation saved. Checking automatically uses the correct order and quality.');
-    }
-
-    public function yarn(Request $request): RedirectResponse
-    {
-        $data = $request->validate([
-            'work_order_id' => 'required|exists:work_orders,id', 'component' => 'required|in:warp,weft',
-            'owner_type' => 'required|in:customer,factory',
-            'movement_type' => 'required|in:receipt,issue,return,adjustment_in,adjustment_out',
-            'weight_kg' => 'required|numeric|gt:0', 'bags' => 'nullable|numeric|min:0',
-            'yarn_count' => 'nullable|string|max:80', 'lot_no' => 'nullable|string|max:100',
-            'reference_no' => 'nullable|string|max:100', 'movement_date' => 'required|date',
-            'notes' => 'nullable|string|max:1000',
-            'destination_type' => 'nullable|in:factory_store,sizing,loom',
-            'destination_name' => 'nullable|string|max:150',
-        ]);
-        DB::transaction(function () use ($data): void {
-            $order = WorkOrder::findOrFail($data['work_order_id']);
-            $supply = $data['component'] === 'warp' ? $order->warp_supply : $order->weft_supply;
-            if ($data['owner_type'] === 'factory' && in_array($data['movement_type'], ['issue', 'return'], true)) {
-                throw ValidationException::withMessages([
-                    'movement_type' => 'Record factory yarn issues and returns in Bags. Link the bag transaction to this order there so kg and stock stay synchronized.',
-                ]);
-            }
-            if ($order->type === 'own' && $data['owner_type'] === 'customer') {
-                throw ValidationException::withMessages(['owner_type' => 'Own production uses factory yarn.']);
-            }
-            if ($supply !== 'mixed' && $supply !== $data['owner_type']) {
-                throw ValidationException::withMessages(['owner_type' => 'This order says the '.$data['component'].' yarn is supplied by '.$supply.'.']);
-            }
-            $movements = YarnMovement::where('work_order_id', $order->id)->where('component', $data['component'])
-                ->where('owner_type', $data['owner_type'])->lockForUpdate()->get();
-            $balance = $movements->sum(fn ($m): float => in_array($m->movement_type, ['receipt', 'return', 'adjustment_in'], true) ? (float) $m->weight_kg : -(float) $m->weight_kg);
-            if (in_array($data['movement_type'], ['issue', 'adjustment_out'], true) && $balance + 0.0001 < (float) $data['weight_kg']) {
-                throw ValidationException::withMessages(['weight_kg' => 'Not enough recorded yarn for this owner and component.']);
-            }
-            YarnMovement::create($data);
-            if ($data['component'] === 'warp' && $data['owner_type'] === 'customer'
-                && ($data['destination_type'] ?? 'factory_store') === 'sizing'
-                && in_array($data['movement_type'], ['receipt', 'issue'], true)) {
-                if ((float) ($data['bags'] ?? 0) <= 0 || blank($data['yarn_count'] ?? null)
-                    || ! YarnQuality::where('name', $data['yarn_count'])->exists()) {
-                    throw ValidationException::withMessages(['yarn_count' => 'For customer warp sent to sizing, enter the bag quantity and choose an existing Yarn Quality name exactly.']);
-                }
-                BagTransaction::create([
-                    'transaction_type' => 'customer_sizing_receipt',
-                    'reference_no' => $data['reference_no'] ?? null,
-                    'quality' => $data['yarn_count'], 'quantity_bags' => $data['bags'],
-                    'source' => $order->party_name ?? 'Customer',
-                    'destination' => $data['destination_name'] ?? 'Sizing Contractor',
-                    'party_name' => $order->party_name,
-                    'transaction_date' => $data['movement_date'],
-                    'notes' => $data['notes'] ?? null,
-                    'owner_type' => 'customer', 'work_order_id' => $order->id,
-                    'net_weight_kg' => $data['weight_kg'],
-                ]);
-            }
-        });
-
-        return back()->with('success', 'Yarn movement recorded in the order material khata.');
     }
 
     public function beam(Request $request, LedgerPostingService $ledgerPostingService): RedirectResponse

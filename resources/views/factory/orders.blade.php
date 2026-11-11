@@ -5,8 +5,8 @@
     <header class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
             <span class="text-[11px] font-extrabold uppercase tracking-widest text-[#15803d]">WEAVING PRODUCTION</span>
-            <h1 class="text-2xl sm:text-3xl font-black text-[#133e2b] tracking-tight">Factory Orders, Looms &amp; Parta</h1>
-            <p class="text-xs sm:text-sm text-stone-500 mt-0.5">The master register for own-manufacturing and job-work weaving.</p>
+            <h1 class="text-2xl sm:text-3xl font-black text-[#133e2b] tracking-tight">Factory Orders &amp; Parta</h1>
+            <p class="text-xs sm:text-sm text-stone-500 mt-0.5">Create fabric Parta versions and own or job-work production orders.</p>
         </div>
     </header>
 
@@ -24,12 +24,23 @@
             <form method="POST" action="{{ route('factory.parta') }}" class="space-y-3.5" id="parta-form">
                 @csrf
                 <label class="block text-xs font-bold text-stone-700">
-                    Existing Fabric Quality
-                    <select name="fabric_stock_id" class="mt-1 w-full border border-[#e2e8e0] rounded-xl p-2.5 text-xs bg-white focus:outline-none focus:border-[#133e2b] focus:ring-1 focus:ring-[#133e2b]" required>
+                    Quality
+                    <select name="quality_mode" id="parta-quality-mode" class="mt-1 w-full border border-[#e2e8e0] rounded-xl p-2.5 text-xs bg-white" required>
+                        <option value="existing">Use existing quality</option>
+                        <option value="new">Create a quality</option>
+                    </select>
+                </label>
+                <label class="block text-xs font-bold text-stone-700" id="parta-existing-quality-field">
+                    Fabric Quality
+                    <select name="fabric_stock_id" id="parta-fabric-stock" class="mt-1 w-full border border-[#e2e8e0] rounded-xl p-2.5 text-xs bg-white focus:outline-none focus:border-[#133e2b] focus:ring-1 focus:ring-[#133e2b]">
                         @foreach($fabrics as $f)
                             <option value="{{ $f->id }}">{{ $f->quality_name }}</option>
                         @endforeach
                     </select>
+                </label>
+                <label class="hidden text-xs font-bold text-stone-700" id="parta-new-quality-field">
+                    New Quality Name
+                    <input name="quality_name" id="parta-quality-name" maxlength="150" placeholder="e.g. 40x40 Cotton Grey" class="mt-1 w-full border border-[#e2e8e0] rounded-xl p-2.5 text-xs">
                 </label>
 
                 <div class="grid grid-cols-2 gap-3">
@@ -48,7 +59,6 @@
                 <button class="w-full rounded-xl bg-[#133e2b] hover:bg-[#1b5239] text-white font-bold p-3 text-xs shadow-2xs transition-all">
                     Save Parta Version
                 </button>
-                <p class="text-[11px] text-stone-400">To create a new quality first, use <a class="underline font-bold text-stone-600 hover:text-[#133e2b]" href="{{ route('fabric.index') }}">Fabric Stock &rarr; New Quality</a>.</p>
             </form>
         </section>
 
@@ -77,7 +87,7 @@
 
                 <label class="block text-xs font-bold text-stone-700">
                     Fabric Quality
-                    <select required name="fabric_stock_id" class="mt-1 w-full border border-[#e2e8e0] rounded-xl p-2.5 text-xs bg-white focus:outline-none focus:border-[#133e2b] focus:ring-1 focus:ring-[#133e2b]">
+                    <select required name="fabric_stock_id" id="order-fabric-stock" class="mt-1 w-full border border-[#e2e8e0] rounded-xl p-2.5 text-xs bg-white focus:outline-none focus:border-[#133e2b] focus:ring-1 focus:ring-[#133e2b]">
                         @foreach($fabrics as $f)
                             <option value="{{ $f->id }}">{{ $f->quality_name }}</option>
                         @endforeach
@@ -86,8 +96,8 @@
 
                 <div class="grid grid-cols-2 gap-3">
                     <label class="text-xs font-bold text-stone-700">
-                        Target metres (own: optional)
-                        <input name="target_meters" type="number" step="0.01" min="0.01" class="mt-1 w-full border border-[#e2e8e0] rounded-xl p-2.5 text-xs focus:outline-none focus:border-[#133e2b] focus:ring-1 focus:ring-[#133e2b]">
+                        Target metres <span id="target-optional-note">(own: optional)</span>
+                        <input name="target_meters" id="order-target-meters" type="number" step="0.01" min="0.01" class="mt-1 w-full border border-[#133e2b] rounded-xl p-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-[#133e2b]">
                     </label>
                     <label class="text-xs font-bold text-stone-700">
                         Start Date
@@ -96,55 +106,38 @@
                 </div>
 
                 <div id="job-order-fields" class="space-y-3 bg-stone-50 rounded-xl p-3.5 border border-stone-200">
-                    <p class="text-[11px] text-stone-500">Fill these for job work. To link an existing Sales Contract, select it and match its fabric quality.</p>
                     <label class="block text-xs font-bold text-stone-700">
-                        Existing Sales Contract (optional)
-                        <select name="existing_contract_id" class="mt-1 w-full border border-[#e2e8e0] rounded-xl p-2 text-xs bg-white">
-                            <option value="">Create a new contract below</option>
+                        Link job-work contract
+                        <select name="existing_contract_id" id="existing-contract-id" class="mt-1 w-full border border-[#e2e8e0] rounded-xl p-2 text-xs bg-white">
+                            <option value="">Create a new contract</option>
                             @foreach($existingContracts as $c)
-                                <option value="{{ $c->id }}">{{ $c->contract_no }} — {{ $c->buyer_name }}</option>
+                                <option value="{{ $c->id }}" data-customer-id="{{ $c->customer_id }}" data-fabric-stock-id="{{ $c->fabric_stock_id }}" data-target-meters="{{ $c->total_meters }}" data-rate-per-pick="{{ $c->conversion_rate }}">
+                                    {{ $c->contract_no }} - {{ $c->customer?->name ?? $c->buyer_name }} - {{ $c->fabricStock?->quality_name }}
+                                </option>
                             @endforeach
                         </select>
                     </label>
-                    <div class="grid grid-cols-2 gap-3">
+                    <div id="new-contract-fields" class="grid grid-cols-2 gap-3">
                         <label class="text-xs font-bold text-stone-700">
                             New Contract No.
-                            <input name="contract_no" placeholder="JC-001" class="mt-1 w-full border border-[#e2e8e0] rounded-xl p-2 text-xs">
+                            <input name="contract_no" id="new-contract-no" placeholder="JC-001" class="mt-1 w-full border border-[#e2e8e0] rounded-xl p-2 text-xs">
                         </label>
                         <label class="text-xs font-bold text-stone-700">
                             Customer
-                            <select name="customer_id" class="mt-1 w-full border border-[#e2e8e0] rounded-xl p-2 text-xs bg-white">
+                            <select name="customer_id" id="order-customer-id" class="mt-1 w-full border border-[#e2e8e0] rounded-xl p-2 text-xs bg-white">
                                 <option value="">Choose customer</option>
                                 @foreach($customers as $customer)
-                                    <option value="{{ $customer->id }}">{{ $customer->name }}{{ $customer->phone ? ' · '.$customer->phone : '' }}</option>
+                                    <option value="{{ $customer->id }}">{{ $customer->name }}{{ $customer->phone ? ' - '.$customer->phone : '' }}</option>
                                 @endforeach
                             </select>
                         </label>
                     </div>
                     <label class="block text-xs font-bold text-stone-700">
                         Weaving rate per pick (Rs.)
-                        <input name="rate_per_pick" type="number" min="0" step="any" placeholder="e.g. 0.50" class="mt-1 w-full border border-[#e2e8e0] rounded-xl p-2 text-xs">
+                        <input name="rate_per_pick" id="order-rate-per-pick" type="number" min="0" step="any" placeholder="e.g. 0.50" class="mt-1 w-full border border-[#e2e8e0] rounded-xl p-2 text-xs">
                     </label>
-                    <div class="grid grid-cols-2 gap-3">
-                        <label class="text-xs font-bold text-stone-700">
-                            Taana supplied by
-                            <select name="warp_supply" class="mt-1 w-full border border-[#e2e8e0] rounded-xl p-2 text-xs bg-white">
-                                <option value="customer">Customer</option>
-                                <option value="factory">Factory</option>
-                                <option value="mixed">Both</option>
-                            </select>
-                        </label>
-                        <label class="text-xs font-bold text-stone-700">
-                            Baana supplied by
-                            <select name="weft_supply" class="mt-1 w-full border border-[#e2e8e0] rounded-xl p-2 text-xs bg-white">
-                                <option value="customer">Customer</option>
-                                <option value="factory">Factory</option>
-                                <option value="mixed">Both</option>
-                            </select>
-                        </label>
-                    </div>
+                    <p class="text-[11px] text-stone-500">Linked bag receipts and measured kg appear on the order automatically.</p>
                 </div>
-
                 <label class="block text-xs font-bold text-stone-700">
                     Notes
                     <textarea name="notes" rows="2" class="mt-1 w-full border border-[#e2e8e0] rounded-xl p-2 text-xs focus:outline-none focus:border-[#133e2b]"></textarea>
@@ -177,6 +170,7 @@
                         <th class="p-3">Target</th>
                         <th class="p-3">Accepted (job)</th>
                         <th class="p-3">Parta cost/m</th>
+                        <th class="p-3">Bags received</th>
                         <th class="p-3">Status</th>
                         <th class="p-3">Close</th>
                     </tr>
@@ -193,6 +187,15 @@
                             <td class="p-3 text-stone-700">{{ $o->target_meters ? number_format($o->target_meters, 0).'m' : 'Open target' }}</td>
                             <td class="p-3 font-semibold text-stone-800">{{ number_format((float) $o->accepted_meters, 2) }}m</td>
                             <td class="p-3 text-stone-700">Rs {{ number_format((float) $o->parta?->cost_per_meter, 2) }}</td>
+                            <td class="p-3 text-stone-700">
+                                @php($bagReceipt = $orderBagReceipts->get($o->id))
+                                @if($bagReceipt)
+                                    {{ number_format((float) $bagReceipt->bags_received, 2) }} bags
+                                    <span class="block text-[10px] text-stone-400">{{ number_format((float) $bagReceipt->weight_received_kg, 3) }} kg</span>
+                                @else
+                                    <span class="text-stone-400">0 bags received</span>
+                                @endif
+                            </td>
                             <td class="p-3">
                                 <span class="inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold {{ $o->status === 'active' ? 'bg-[#e6f4ea] text-[#137333]' : 'bg-stone-100 text-stone-700' }}">
                                     {{ ucfirst($o->status) }}
@@ -208,7 +211,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="8" class="p-6 text-center text-stone-400 italic">No production orders yet. Save Parta and create one above.</td>
+                            <td colspan="9" class="p-6 text-center text-stone-400 italic">No production orders yet. Save Parta and create one above.</td>
                         </tr>
                     @endforelse
                 </tbody>
@@ -217,321 +220,125 @@
         {{ $orders->links() }}
     </section>
 
-    <!-- LOOMS & BEAMS -->
-    <div class="grid lg:grid-cols-2 gap-6">
-        
-        <!-- ASSIGN LOOM -->
-        <section class="card p-6 space-y-4 shadow-2xs" id="looms">
-            <div class="pb-3 border-b border-[#e2e8e0]">
-                <h2 class="text-base font-extrabold text-[#133e2b]">Assign Loom to Order</h2>
-                <p class="text-xs text-stone-500">A loom runs one contract on any given day. Switching is allowed from a later date, after recording the beam balance.</p>
-            </div>
-
-            <form method="POST" action="{{ route('factory.loom.assign') }}" class="space-y-3.5">
-                @csrf
-                <label class="block text-xs font-bold text-stone-700">
-                    Order
-                    <select name="work_order_id" required class="mt-1 w-full border border-[#e2e8e0] rounded-xl p-2.5 text-xs bg-white">
-                        @foreach($activeOrders as $o)
-                            <option value="{{ $o->id }}">{{ $o->order_no }} — {{ $o->fabricStock?->quality_name }}</option>
-                        @endforeach
-                    </select>
-                </label>
-
-                <div class="grid grid-cols-2 gap-3">
-                    <label class="text-xs font-bold text-stone-700">
-                        Loom
-                        <select name="loom_no" class="mt-1 w-full border border-[#e2e8e0] rounded-xl p-2.5 text-xs bg-white">
-                            @foreach($looms as $loom)
-                                <option value="{{ $loom }}">{{ $loom }}</option>
-                            @endforeach
-                        </select>
-                    </label>
-                    <label class="text-xs font-bold text-stone-700">
-                        Effective from
-                        <input type="date" required name="start_date" value="{{ date('Y-m-d') }}" class="mt-1 w-full border border-[#e2e8e0] rounded-xl p-2.5 text-xs">
-                    </label>
-                </div>
-
-                <input name="change_reason" placeholder="Reason for switch (optional)" class="border border-[#e2e8e0] rounded-xl p-2.5 w-full text-xs">
-                
-                <button class="bg-[#133e2b] hover:bg-[#1b5239] text-white rounded-xl p-3 font-bold text-xs w-full shadow-2xs transition-all">
-                    Save Loom Allocation
-                </button>
-            </form>
-
-            <div class="overflow-auto max-h-52 border border-stone-200 rounded-xl mt-3">
-                <table class="text-xs w-full">
-                    <thead class="bg-stone-50 text-[10px] font-bold uppercase text-stone-500 border-b border-stone-200">
-                        <tr>
-                            <th class="text-left p-2.5">Loom</th>
-                            <th class="text-left p-2.5">Running order</th>
-                            <th class="p-2.5 text-right">From</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-stone-100">
-                        @forelse($assignments as $a)
-                            <tr class="hover:bg-stone-50/60">
-                                <td class="p-2.5 font-bold text-stone-900">{{ $a->loom_no }}</td>
-                                <td class="p-2.5 text-stone-700">{{ $a->order?->order_no }} &middot; {{ $a->order?->fabricStock?->quality_name }}</td>
-                                <td class="p-2.5 text-right text-stone-500">{{ $a->start_date }}</td>
-                            </tr>
-                        @empty
-                            <tr><td colspan="3" class="p-3 text-center text-stone-400 italic">No active loom allocations</td></tr>
-                        @endforelse
-                    </tbody>
-                </table>
-            </div>
-        </section>
-
-        <!-- BEAM TRANSFER / SETTLEMENT -->
-        <section class="card p-6 space-y-4 shadow-2xs" id="beams">
-            <div class="pb-3 border-b border-[#e2e8e0]">
-                <h2 class="text-base font-extrabold text-[#133e2b]">Beam Transfer / Settlement</h2>
-                <p class="text-xs text-stone-500">Beam keeps its original order during loom transfers. Change its order only through Settle &amp; Reassign.</p>
-            </div>
-
-            <form method="POST" action="{{ route('factory.beam') }}" class="space-y-3.5">
-                @csrf
-                <label class="block text-xs font-bold text-stone-700">
-                    Beam
-                    <select id="beam-selector" name="sizing_beam_id" required class="mt-1 w-full border border-[#e2e8e0] rounded-xl p-2.5 text-xs bg-white">
-                        @foreach($beams as $b)
-                            <option value="{{ $b->id }}" data-weight="{{ $b->initial_net_weight_kg }}" data-total="{{ $b->total_length_meters }}" data-left="{{ $b->remaining_length_meters }}" data-rate="{{ $b->workOrder?->contract?->yarn_warp_rate ?? $b->workOrder?->parta?->warp_rate_per_lb ?? 0 }}">
-                                {{ $b->beam_name ?? $b->beam_no }} &middot; Left {{ number_format((float)$b->remaining_length_meters,2) }}m &middot; {{ $b->assigned_loom_no ?? 'Store' }}
-                            </option>
-                        @endforeach
-                    </select>
-                </label>
-
-                <label class="block text-xs font-bold text-stone-700">
-                    Action
-                    <select name="action" class="mt-1 w-full border border-[#e2e8e0] rounded-xl p-2.5 text-xs bg-white">
-                        <option value="mount">Mount / Transfer to another loom (same order)</option>
-                        <option value="unmount">Unmount to Store</option>
-                        <option value="settle_reassign">Settle customer yarn and reassign to another order</option>
-                        <option value="return_customer">Return customer beam and remaining yarn</option>
-                    </select>
-                </label>
-
-                <div class="grid grid-cols-2 gap-3">
-                    <label class="text-xs font-bold text-stone-700">
-                        Target order
-                        <select name="work_order_id" class="mt-1 w-full border border-[#e2e8e0] rounded-xl p-2.5 text-xs bg-white">
-                            <option value="">Keep original order</option>
-                            @foreach($activeOrders as $o)
-                                <option value="{{ $o->id }}">{{ $o->order_no }}</option>
-                            @endforeach
-                        </select>
-                    </label>
-                    <label class="text-xs font-bold text-stone-700">
-                        Target Loom
-                        <select name="loom_no" class="mt-1 w-full border border-[#e2e8e0] rounded-xl p-2.5 text-xs bg-white">
-                            <option value="">Unmount / no loom</option>
-                            @foreach($looms as $loom)
-                                <option value="{{ $loom }}">{{ $loom }}</option>
-                            @endforeach
-                        </select>
-                    </label>
-                </div>
-
-                <div class="grid grid-cols-2 gap-3">
-                    <label class="text-xs font-bold text-stone-700">
-                        Original Beam Weight (kg, if known)
-                        <input type="number" step=".001" name="initial_net_weight_kg" class="mt-1 w-full border border-[#e2e8e0] rounded-xl p-2.5 text-xs">
-                    </label>
-                    <label class="text-xs font-bold text-stone-700">
-                        Remaining Yarn (kg, optional override)
-                        <input type="number" step=".001" name="remaining_weight_kg" class="mt-1 w-full border border-[#e2e8e0] rounded-xl p-2.5 text-xs">
-                    </label>
-                </div>
-
-                <div class="grid grid-cols-2 gap-3">
-                    <label class="text-xs font-bold text-stone-700">
-                        Agreed settlement (Rs, optional when predicted)
-                        <input name="agreed_settlement" type="number" step=".01" min="0" class="mt-1 w-full border border-[#e2e8e0] rounded-xl p-2.5 text-xs">
-                    </label>
-                    <label class="text-xs font-bold text-stone-700">
-                        Date
-                        <input type="date" name="event_date" required value="{{ date('Y-m-d') }}" class="mt-1 w-full border border-[#e2e8e0] rounded-xl p-2.5 text-xs">
-                    </label>
-                </div>
-
-                <textarea name="notes" placeholder="Notes" rows="2" class="w-full border border-[#e2e8e0] rounded-xl p-2.5 text-xs focus:outline-none focus:border-[#133e2b]"></textarea>
-
-                <p id="settlement-preview" class="p-3 bg-emerald-50/70 border border-emerald-200/60 rounded-xl text-xs font-semibold text-[#133e2b]">
-                    Predicted settlement: select a beam and weight
-                </p>
-
-                <button class="bg-[#133e2b] hover:bg-[#1b5239] text-white rounded-xl p-3 font-bold text-xs w-full shadow-2xs transition-all">
-                    Record Beam Action
-                </button>
-            </form>
-
-            <p class="text-[11px] text-stone-400">Predicted settlement = remaining warp kg &times; 2.20462 &times; original contract Taana rate per lb. Final amount may be overridden.</p>
-
-            <div class="max-h-44 overflow-auto text-xs border border-stone-200 rounded-xl p-2 divide-y divide-stone-100">
-                @foreach($recentBeams as $e)
-                    <p class="py-2 text-stone-600">
-                        <strong class="text-stone-900">{{ $e->event_date }}</strong> &middot; {{ $e->beam?->beam_no }} &middot; {{ $e->action }} &middot; {{ number_format((float)$e->remaining_length_meters,2) }}m left
-                        @if($e->agreed_settlement !== null)
-                            &middot; Rs {{ number_format((float)$e->agreed_settlement,2) }} agreed (predicted Rs {{ number_format((float)$e->predicted_settlement,2) }})
-                        @endif
-                    </p>
-                @endforeach
-            </div>
-        </section>
-
-    </div>
-
-    <!-- SUTAR / TAANA / BAANA MOVEMENT KHATA -->
-    <section class="card p-6 space-y-4 shadow-2xs" id="yarn">
-        <div class="pb-3 border-b border-[#e2e8e0]">
-            <h2 class="text-base font-extrabold text-[#133e2b]">Sutar / Taana / Baana Movement Khata</h2>
-            <p class="text-xs text-stone-500">Record customer yarn and order adjustments here. For factory yarn, enter the issue or return once in Bags and link it to this order with its measured kg; the order khata is updated automatically.</p>
-        </div>
-
-        <form method="POST" action="{{ route('factory.yarn') }}" class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-            @csrf
-            <label class="text-xs font-bold text-stone-700">
-                Order
-                <select name="work_order_id" required class="mt-1 border border-[#e2e8e0] rounded-xl p-2.5 text-xs w-full bg-white">
-                    @foreach($activeOrders as $o)
-                        <option value="{{ $o->id }}">{{ $o->order_no }}</option>
-                    @endforeach
-                </select>
-            </label>
-
-            <label class="text-xs font-bold text-stone-700">
-                Material
-                <select name="component" class="mt-1 border border-[#e2e8e0] rounded-xl p-2.5 text-xs w-full bg-white">
-                    <option value="warp">Taana / Warp</option>
-                    <option value="weft">Baana / Weft</option>
-                </select>
-            </label>
-
-            <label class="text-xs font-bold text-stone-700">
-                Owner
-                <select name="owner_type" class="mt-1 border border-[#e2e8e0] rounded-xl p-2.5 text-xs w-full bg-white">
-                    <option value="customer">Customer</option>
-                    <option value="factory">Factory (receipts / adjustments)</option>
-                </select>
-            </label>
-
-            <label class="text-xs font-bold text-stone-700">
-                Movement
-                <select name="movement_type" class="mt-1 border border-[#e2e8e0] rounded-xl p-2.5 text-xs w-full bg-white">
-                    <option value="receipt">Receipt</option>
-                    <option value="issue">Issued / Consumed</option>
-                    <option value="return">Returned to Order Stock</option>
-                    <option value="adjustment_in">Adjustment (+)</option>
-                    <option value="adjustment_out">Adjustment (−)</option>
-                </select>
-            </label>
-
-            <label class="text-xs font-bold text-stone-700">
-                Net weight (kg)
-                <input required name="weight_kg" type="number" min=".001" step=".001" class="mt-1 border border-[#e2e8e0] rounded-xl p-2.5 text-xs w-full">
-            </label>
-
-            <label class="text-xs font-bold text-stone-700">
-                Bags (optional)
-                <input name="bags" type="number" min="0" step=".01" class="mt-1 border border-[#e2e8e0] rounded-xl p-2.5 text-xs w-full">
-            </label>
-
-            <label class="text-xs font-bold text-stone-700">
-                Count / Lot
-                <input name="yarn_count" placeholder="20/1" class="mt-1 border border-[#e2e8e0] rounded-xl p-2.5 text-xs w-full">
-            </label>
-
-            <label class="text-xs font-bold text-stone-700">
-                Lot No
-                <input name="lot_no" class="mt-1 border border-[#e2e8e0] rounded-xl p-2.5 text-xs w-full">
-            </label>
-
-            <label class="text-xs font-bold text-stone-700">
-                Reference No
-                <input name="reference_no" class="mt-1 border border-[#e2e8e0] rounded-xl p-2.5 text-xs w-full">
-            </label>
-
-            <label class="text-xs font-bold text-stone-700">
-                Date
-                <input type="date" name="movement_date" value="{{ date('Y-m-d') }}" required class="mt-1 border border-[#e2e8e0] rounded-xl p-2.5 text-xs w-full">
-            </label>
-
-            <label class="text-xs font-bold text-stone-700">
-                Where is the yarn going?
-                <select name="destination_type" class="mt-1 border border-[#e2e8e0] rounded-xl p-2.5 text-xs w-full bg-white">
-                    <option value="factory_store">Factory Store</option>
-                    <option value="sizing">Sizing Contractor</option>
-                    <option value="loom">Loom</option>
-                </select>
-            </label>
-
-            <label class="text-xs font-bold text-stone-700">
-                Destination Name
-                <input name="destination_name" placeholder="Sizing contractor / destination" class="mt-1 border border-[#e2e8e0] rounded-xl p-2.5 text-xs w-full">
-            </label>
-
-            <div class="sm:col-span-2 lg:col-span-3">
-                <input name="notes" placeholder="Notes / Sizing / Weaver details" class="border border-[#e2e8e0] rounded-xl p-2.5 text-xs w-full">
-            </div>
-
-            <div class="sm:col-span-2 lg:col-span-1">
-                <button class="w-full bg-[#133e2b] hover:bg-[#1b5239] text-white rounded-xl p-2.5 font-bold text-xs shadow-2xs transition-all h-full">
-                    Save Movement
-                </button>
-            </div>
-        </form>
-
-        <div class="overflow-x-auto mt-4 pt-4 border-t border-[#e2e8e0]">
-            <h3 class="text-xs font-extrabold uppercase tracking-wider text-stone-600 mb-2.5">Order-wise yarn balances</h3>
-            <table class="w-full text-xs">
-                <thead>
-                    <tr class="bg-stone-50 border-b border-stone-200 text-stone-600 text-[10px] font-bold uppercase tracking-wider">
-                        <th class="p-2.5 text-left">Order</th>
-                        <th class="p-2.5 text-left">Material</th>
-                        <th class="p-2.5 text-left">Owner</th>
-                        <th class="p-2.5 text-right">Balance (kg)</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-stone-100">
-                    @forelse($yarnBalances as $y)
-                        <tr class="hover:bg-stone-50/60">
-                            <td class="p-2.5 font-bold text-stone-900">{{ $activeOrders->firstWhere('id',$y->work_order_id)?->order_no ?? '#'.$y->work_order_id }}</td>
-                            <td class="p-2.5 text-stone-700">{{ $y->component }}</td>
-                            <td class="p-2.5 text-stone-700">{{ $y->owner_type }}</td>
-                            <td class="text-right p-2.5 font-black text-[#133e2b] tabular-nums">{{ number_format((float)$y->balance_kg,3) }}</td>
-                        </tr>
-                    @empty
-                        <tr><td colspan="4" class="p-4 text-center text-stone-400 italic">No yarn transactions recorded.</td></tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </div>
-    </section>
 </div>
 
 <script>
-(function(){
-  const type=document.getElementById('order-type'), job=document.getElementById('job-order-fields');
-  function update(){job.style.display=type.value==='job'?'block':'none'}; type.addEventListener('change',update); update();
-  const f=document.getElementById('parta-form'), display=document.getElementById('parta-preview');
-  function preview(){const v=n=>Number(f.elements[n].value)||0;const read=v('read'),pick=v('pick'),width=v('width_inches'),warp=v('warp_count'),weft=v('weft_count');
-   if(!read||!pick||!width||!warp||!weft){display.textContent='Enter fabric specification to preview weight and cost.';return;}
-   const trunc=x=>Math.floor((x+0.000000001)*10000)/10000, paisa=x=>Math.floor((x+0.000000001)*100)/100;
-   const a=trunc(read*width/warp*1.0936/800),b=trunc(pick*width/weft*1.0936/800),kg=(a+b)/2.2046226218;
-   const cost=paisa(a*v('warp_rate_per_lb'))+paisa(b*v('weft_rate_per_lb'))+paisa(pick*v('conversion_rate_per_pick'));
-   const gsm=(read/warp+pick/weft)*25.25;
-   display.textContent='Taana '+a.toFixed(4)+' lb/m · Baana '+b.toFixed(4)+' lb/m · Total '+paisa(kg*1000).toFixed(2)+' grams/m · GSM '+gsm.toFixed(2)+' · Cost Rs '+cost.toFixed(2)+'/m'; }
-  f.querySelectorAll('input').forEach(el=>el.addEventListener('input',preview));preview();
-  const beam=document.getElementById('beam-selector'),out=document.getElementById('settlement-preview');
-  const beamForm=beam.closest('form');function settlement(){const op=beam.selectedOptions[0];const supplied=Number(beamForm.elements['remaining_weight_kg'].value)||0;
-    const original=Number(beamForm.elements['initial_net_weight_kg'].value)||Number(op?.dataset.weight)||0;
-    const kg=supplied||original*(Number(op?.dataset.left)||0)/(Number(op?.dataset.total)||1);
-    const rate=Number(op?.dataset.rate)||0;
-    out.textContent=kg>0&&rate>0?'Predicted: Rs '+(kg*2.2046226218*rate).toFixed(2)+' ('+kg.toFixed(3)+' kg × '+rate+' Rs/lb). You can enter a different agreed amount.':'Predicted: supply the beam weight and ensure the original contract has a Taana rate; otherwise enter the final agreed amount.';}
-  beam.addEventListener('change',settlement);beamForm.querySelectorAll('input').forEach(el=>el.addEventListener('input',settlement));settlement();
+(function () {
+    const partaMode = document.getElementById('parta-quality-mode');
+    const existingQualityField = document.getElementById('parta-existing-quality-field');
+    const existingQualitySelect = document.getElementById('parta-fabric-stock');
+    const newQualityField = document.getElementById('parta-new-quality-field');
+    const newQualityName = document.getElementById('parta-quality-name');
+
+    function updatePartaQualityMode() {
+        const creatingQuality = partaMode.value === 'new';
+        existingQualityField.classList.toggle('hidden', creatingQuality);
+        existingQualitySelect.disabled = creatingQuality;
+        existingQualitySelect.required = !creatingQuality;
+        newQualityField.classList.toggle('hidden', !creatingQuality);
+        newQualityName.required = creatingQuality;
+        newQualityName.disabled = !creatingQuality;
+    }
+
+    partaMode.addEventListener('change', updatePartaQualityMode);
+    updatePartaQualityMode();
+
+    const orderType = document.getElementById('order-type');
+    const jobFields = document.getElementById('job-order-fields');
+    const contractSelect = document.getElementById('existing-contract-id');
+    const newContractFields = document.getElementById('new-contract-fields');
+    const contractNumber = document.getElementById('new-contract-no');
+    const customerSelect = document.getElementById('order-customer-id');
+    const fabricSelect = document.getElementById('order-fabric-stock');
+    const targetMeters = document.getElementById('order-target-meters');
+    const ratePerPick = document.getElementById('order-rate-per-pick');
+    let manualTargetMeters = targetMeters.value;
+    let manualRatePerPick = ratePerPick.value;
+    let manualCustomerId = customerSelect.value;
+    let hadLinkedContract = false;
+
+    function updateOrderFields() {
+        const isJobWork = orderType.value === 'job';
+        const selectedContract = contractSelect.selectedOptions[0];
+        const hasExistingContract = isJobWork && Boolean(contractSelect.value);
+
+        jobFields.classList.toggle('hidden', !isJobWork);
+        contractSelect.disabled = !isJobWork;
+        newContractFields.classList.toggle('hidden', hasExistingContract || !isJobWork);
+        contractNumber.disabled = !isJobWork || hasExistingContract;
+        contractNumber.required = isJobWork && !hasExistingContract;
+        customerSelect.disabled = !isJobWork || hasExistingContract;
+        customerSelect.required = isJobWork && !hasExistingContract;
+        targetMeters.required = isJobWork;
+        targetMeters.readOnly = hasExistingContract;
+        ratePerPick.readOnly = hasExistingContract;
+
+        if (hasExistingContract) {
+            if (!hadLinkedContract) {
+                manualTargetMeters = targetMeters.value;
+                manualRatePerPick = ratePerPick.value;
+                manualCustomerId = customerSelect.value;
+            }
+            const contractCustomerId = selectedContract.dataset.customerId || '';
+            if (contractCustomerId) {
+                customerSelect.value = contractCustomerId;
+            }
+            fabricSelect.value = selectedContract.dataset.fabricStockId || fabricSelect.value;
+            targetMeters.value = selectedContract.dataset.targetMeters || '';
+            ratePerPick.value = selectedContract.dataset.ratePerPick || '';
+        } else if (hadLinkedContract) {
+            targetMeters.value = manualTargetMeters;
+            ratePerPick.value = manualRatePerPick;
+            customerSelect.value = manualCustomerId;
+        }
+
+        hadLinkedContract = hasExistingContract;
+    }
+
+    contractSelect.addEventListener('change', updateOrderFields);
+    orderType.addEventListener('change', updateOrderFields);
+    targetMeters.addEventListener('input', () => {
+        manualTargetMeters = targetMeters.value;
+    });
+    ratePerPick.addEventListener('input', () => {
+        manualRatePerPick = ratePerPick.value;
+    });
+    customerSelect.addEventListener('change', () => {
+        manualCustomerId = customerSelect.value;
+    });
+    updateOrderFields();
+
+    const form = document.getElementById('parta-form');
+    const preview = document.getElementById('parta-preview');
+
+    function updatePartaPreview() {
+        const value = (name) => Number(form.elements[name].value) || 0;
+        const read = value('read');
+        const pick = value('pick');
+        const width = value('width_inches');
+        const warpCount = value('warp_count');
+        const weftCount = value('weft_count');
+
+        if (!read || !pick || !width || !warpCount || !weftCount) {
+            preview.textContent = 'Enter read, pick, counts and width to calculate weight and cost.';
+            return;
+        }
+
+        const truncate = (amount, places) => Math.floor((amount + 0.000000001) * (10 ** places)) / (10 ** places);
+        const warp = truncate(read * width / warpCount * 1.0936 / 800, 4);
+        const weft = truncate(pick * width / weftCount * 1.0936 / 800, 4);
+        const kilogramsPerMeter = (warp + weft) / 2.2046226218;
+        const paisa = (amount) => truncate(amount, 2);
+        const cost = paisa(warp * value('warp_rate_per_lb'))
+            + paisa(weft * value('weft_rate_per_lb'))
+            + paisa(pick * value('conversion_rate_per_pick'));
+        const gsm = (read / warpCount + pick / weftCount) * 25.25;
+
+        preview.textContent = `Taana ${warp.toFixed(4)} lb/m · Baana ${weft.toFixed(4)} lb/m · Total ${paisa(kilogramsPerMeter * 1000).toFixed(2)} grams/m · GSM ${gsm.toFixed(2)} · Cost Rs ${cost.toFixed(2)}/m`;
+    }
+
+    form.querySelectorAll('input').forEach((input) => input.addEventListener('input', updatePartaPreview));
+    updatePartaPreview();
 })();
 </script>
 @endsection
