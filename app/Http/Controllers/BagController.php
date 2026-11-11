@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\BagPurchase;
 use App\Models\BagTransaction;
+use App\Models\SalesContract;
 use App\Models\SizingSlip;
 use App\Models\WorkOrder;
 use App\Models\YarnMovement;
@@ -388,5 +389,75 @@ class BagController extends Controller
 
         return redirect()->route('bags.index')
             ->with('success', "Received back {$validated['quantity_bags']} unused bags of {$validated['quality']} into Factory Store.");
+    }
+
+    public function receiveCustomerBags(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'sales_contract_id' => 'required|exists:sales_contracts,id',
+            'reference_no' => 'required|string|max:100',
+            'component' => 'required|in:warp,weft',
+            'quality' => 'required|string|exists:yarn_qualities,name',
+            'quantity_bags' => 'required|numeric|gt:0|decimal:0,2',
+            'net_weight_kg' => 'required|numeric|gt:0|decimal:0,3',
+            'transaction_date' => 'required|date',
+            'notes' => 'nullable|string|max:2000',
+        ]);
+
+        $receipt = DB::transaction(function () use ($validated): BagTransaction {
+            $contract = SalesContract::whereKey($validated['sales_contract_id'])->lockForUpdate()->firstOrFail();
+            if ($contract->contract_type !== 'Conversion' || $contract->yarn_supply !== 'customer' || $contract->status !== 'active') {
+                throw ValidationException::withMessages([
+                    'sales_contract_id' => 'Customer bags can only be received for an active customer-supplied conversion contract.',
+                ]);
+            }
+
+            $order = WorkOrder::where('sales_contract_id', $contract->id)->first();
+            if ($order !== null && $order->status !== 'active') {
+                throw ValidationException::withMessages([
+                    'sales_contract_id' => 'Customer yarn can only be received while the linked work order is active.',
+                ]);
+            }
+
+            $receipt = BagTransaction::create([
+                'transaction_type' => 'customer_sizing_receipt',
+                'reference_no' => $validated['reference_no'],
+                'quality' => $validated['quality'],
+                'quantity_bags' => $validated['quantity_bags'],
+                'source' => $contract->buyer_name,
+                'destination' => 'Factory Sizing Store',
+                'party_name' => $contract->buyer_name,
+                'transaction_date' => $validated['transaction_date'],
+                'notes' => $validated['notes'] ?? null,
+                'work_order_id' => $order?->id,
+                'sales_contract_id' => $contract->id,
+                'owner_type' => 'customer',
+                'component' => $validated['component'],
+                'net_weight_kg' => $validated['net_weight_kg'],
+            ]);
+
+            if ($order !== null) {
+                YarnMovement::create([
+                    'work_order_id' => $order->id,
+                    'component' => $validated['component'],
+                    'owner_type' => 'customer',
+                    'movement_type' => 'receipt',
+                    'weight_kg' => $validated['net_weight_kg'],
+                    'bags' => $validated['quantity_bags'],
+                    'yarn_count' => $validated['quality'],
+                    'lot_no' => $validated['reference_no'],
+                    'reference_no' => $validated['reference_no'],
+                    'movement_date' => $validated['transaction_date'],
+                    'notes' => 'Customer-owned bags received under contract '.$contract->contract_no.'. '.($validated['notes'] ?? ''),
+                    'destination_type' => 'sizing',
+                    'destination_name' => 'Factory Sizing Store',
+                ]);
+            }
+
+            return $receipt;
+        });
+
+        return redirect()->route('sales.contracts')
+            ->with('success', "Received {$receipt->quantity_bags} customer-owned bags ({$receipt->net_weight_kg} kg) for contract.");
     }
 }

@@ -20,7 +20,7 @@ class BagTransaction extends Model
         'party_name',
         'transaction_date',
         'notes',
-        'work_order_id', 'owner_type', 'net_weight_kg',
+        'work_order_id', 'sales_contract_id', 'owner_type', 'component', 'net_weight_kg',
     ];
 
     protected $casts = [

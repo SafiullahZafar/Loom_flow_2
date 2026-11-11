@@ -324,7 +324,7 @@
                     <h2 class="text-sm font-extrabold text-zinc-900 leading-tight">
                         {{ $page === 'dashboard' ? 'Recent Stock Movements' : 'Daily Stock Issuance & Ledger Log' }}
                     </h2>
-                    <p class="text-[10px] text-zinc-400 mt-0.5">Factory godown → sizing mills, returns, and all bag movements</p>
+                    <p class="text-[10px] text-zinc-400 mt-0.5">Factory yarn, customer-owned receipts, sizing issues, and returns</p>
                 </div>
             </div>
             @if($page === 'dashboard')
@@ -357,13 +357,23 @@
                                     <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-zinc-900 text-zinc-50">Issued To Sizing</span>
                                 @elseif($tx->transaction_type === 'return_from_sizing')
                                     <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-zinc-100 text-zinc-600 border border-zinc-200">Returned</span>
+                                @elseif($tx->transaction_type === 'customer_sizing_receipt')
+                                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-200">Customer Bags Received</span>
+                                @elseif($tx->transaction_type === 'customer_return_sizing')
+                                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">Customer Bags Returned</span>
                                 @else
                                     <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-zinc-100 text-zinc-500">{{ $tx->transaction_type }}</span>
+                                @endif
+                                @if($tx->owner_type === 'customer')
+                                    <span class="mt-1 block text-[9px] font-extrabold uppercase tracking-wide text-amber-800">Customer property</span>
                                 @endif
                             </td>
                             <td class="px-4 py-3 font-mono font-semibold text-zinc-900">{{ $tx->reference_no ?? '-' }}</td>
                             <td class="px-4 py-3 font-medium text-zinc-700">{{ $tx->quality }}</td>
-                            <td class="px-4 py-3 text-right font-mono font-bold text-zinc-900">{{ number_format((float) $tx->quantity_bags, 2) }} Bags</td>
+                            <td class="px-4 py-3 text-right font-mono font-bold text-zinc-900">
+                                {{ number_format((float) $tx->quantity_bags, 2) }} Bags
+                                @if($tx->net_weight_kg)<span class="block text-[10px] font-medium text-zinc-500">{{ number_format((float) $tx->net_weight_kg, 3) }} kg</span>@endif
+                            </td>
                             <td class="px-4 py-3 text-zinc-500">{{ $tx->source }}</td>
                             <td class="px-4 py-3 text-zinc-700 font-semibold">{{ $tx->destination }}</td>
                             <td class="px-4 py-3 text-zinc-600">{{ $tx->party_name ?? '-' }}</td>

@@ -68,6 +68,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/bags/ledger', [BagController::class, 'ledger'])->name('bags.ledger');
     Route::get('/bags/sizing-usage', [BagController::class, 'sizingUsage'])->name('bags.sizing-usage');
     Route::post('/bags/purchase', [BagController::class, 'storePurchase'])->name('bags.purchase');
+    Route::post('/bags/customer-receipts', [BagController::class, 'receiveCustomerBags'])->name('bags.customer-receipts.store');
     Route::post('/bags/issue', [BagController::class, 'issueStock'])->name('bags.issue');
     Route::post('/bags/return', [BagController::class, 'returnStock'])->name('bags.return');
 

@@ -160,7 +160,7 @@ class FactoryOrderController extends Controller
                     ]);
                 }
             }
-            WorkOrder::create([
+            $order = WorkOrder::create([
                 'order_no' => $data['order_no'], 'type' => $data['type'],
                 'sales_contract_id' => $contract?->id, 'fabric_stock_id' => $fabric->id,
                 'customer_id' => $contract?->customer_id, 'parta_record_id' => $parta->id, 'party_name' => $party,
@@ -169,6 +169,34 @@ class FactoryOrderController extends Controller
                 'weft_supply' => $data['type'] === 'own' ? 'factory' : ($contract?->yarn_supply ?? 'mixed'),
                 'start_date' => $data['start_date'], 'notes' => $data['notes'] ?? null,
             ]);
+
+            if ($contract !== null) {
+                $pendingCustomerReceipts = BagTransaction::where('sales_contract_id', $contract->id)
+                    ->where('transaction_type', 'customer_sizing_receipt')
+                    ->where('owner_type', 'customer')
+                    ->whereNull('work_order_id')
+                    ->lockForUpdate()
+                    ->get();
+
+                foreach ($pendingCustomerReceipts as $receipt) {
+                    $receipt->update(['work_order_id' => $order->id]);
+                    YarnMovement::create([
+                        'work_order_id' => $order->id,
+                        'component' => $receipt->component,
+                        'owner_type' => 'customer',
+                        'movement_type' => 'receipt',
+                        'weight_kg' => $receipt->net_weight_kg,
+                        'bags' => $receipt->quantity_bags,
+                        'yarn_count' => $receipt->quality,
+                        'lot_no' => $receipt->reference_no,
+                        'reference_no' => $receipt->reference_no,
+                        'movement_date' => $receipt->transaction_date,
+                        'notes' => 'Customer-owned bags received under contract '.$contract->contract_no.'. '.($receipt->notes ?? ''),
+                        'destination_type' => 'sizing',
+                        'destination_name' => $receipt->destination,
+                    ]);
+                }
+            }
         });
 
         return back()->with('success', 'Order created. Assign it to a loom in Sizing > Beams Tracking to begin production.');

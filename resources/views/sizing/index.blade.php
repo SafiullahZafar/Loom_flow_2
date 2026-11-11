@@ -273,13 +273,16 @@
                         @php
                             $sizingParty = $transaction->destination ?: ($transaction->party_name ?: $transaction->source);
                             $sizingSlipNo = 'SZ-'.$transaction->reference_no;
+                            $receivedWeightKg = $transaction->net_weight_kg !== null
+                                ? (float) $transaction->net_weight_kg
+                                : (float) $transaction->quantity_bags * $kilogramsPerBag;
                         @endphp
                         <tr>
                             <td class="px-4 py-3"><span class="font-mono font-bold text-zinc-900">{{ $transaction->reference_no ?: 'Bag entry #'.$transaction->id }}</span><span class="mt-0.5 block text-[10px] text-zinc-400">{{ $transaction->transaction_date->format('d M, Y') }}</span></td>
-                            <td class="px-4 py-3 font-semibold text-zinc-700">{{ $sizingParty }}</td>
+                            <td class="px-4 py-3 font-semibold text-zinc-700">{{ $sizingParty }}@if($transaction->owner_type === 'customer')<span class="mt-1 block text-[9px] font-extrabold uppercase tracking-wide text-amber-800">Customer-owned bags</span>@endif</td>
                             <td class="px-4 py-3 text-zinc-600">{{ $transaction->quality }}</td>
                             <td class="px-4 py-3 text-right font-mono font-bold text-zinc-900">{{ number_format((float) $transaction->quantity_bags, 2) }}</td>
-                            <td class="px-4 py-3 text-right font-mono text-zinc-600">{{ number_format($transaction->quantity_bags * $kilogramsPerBag, 2) }} kg<span class="block text-[10px] text-zinc-400">{{ number_format($transaction->quantity_bags * 100) }} lb</span></td>
+                            <td class="px-4 py-3 text-right font-mono text-zinc-600">{{ number_format($receivedWeightKg, 3) }} kg<span class="block text-[10px] text-zinc-400">{{ $transaction->net_weight_kg !== null ? 'measured on receipt' : number_format($transaction->quantity_bags * 100).' lb estimated' }}</span></td>
                             <td class="px-4 py-3 text-right"><button type="button" onclick="openSizingSlipFromBag(this)" data-id="{{ $transaction->id }}" data-reference="{{ $transaction->reference_no }}" data-slip="{{ $sizingSlipNo }}" data-party="{{ $sizingParty }}" data-quality="{{ $transaction->quality }}" data-quantity="{{ $transaction->quantity_bags }}" data-date="{{ $transaction->transaction_date->format('Y-m-d') }}" class="rounded-lg bg-zinc-900 px-3 py-2 text-[11px] font-bold text-white hover:bg-zinc-700">Enter sizing slip</button></td>
                         </tr>
                     @endforeach

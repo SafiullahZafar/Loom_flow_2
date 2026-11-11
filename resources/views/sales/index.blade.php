@@ -575,7 +575,7 @@
         </script>
         <div class="rounded-3xl border border-zinc-200 bg-white shadow-sm overflow-hidden">
 
-            <div class="flex items-center justify-between px-6 py-4 border-b border-zinc-100 bg-zinc-50">
+            <div class="flex items-center justify-between gap-4 px-6 py-5 border-b border-zinc-100 bg-gradient-to-r from-zinc-50 via-white to-zinc-50">
                 <div class="flex items-center gap-2.5">
                     <span class="flex h-8 w-8 items-center justify-center rounded-xl bg-zinc-900">
                         <svg class="h-4 w-4 text-zinc-100" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -587,7 +587,7 @@
                         <h2 class="text-sm font-extrabold text-zinc-900 leading-tight">
                             {{ $page === 'dashboard' ? 'Active Buyer Contracts' : 'Multi-Quality Buyer Contracts' }}
                         </h2>
-                        <p class="text-[10px] text-zinc-400 mt-0.5">Delivery progress, remaining meters, and contract values</p>
+                        <p class="text-[11px] text-zinc-500 mt-1">Track delivery, remaining metres, contract value, and customer yarn receipts.</p>
                     </div>
                 </div>
                 @if($page === 'dashboard')
@@ -595,23 +595,24 @@
                 @endif
             </div>
 
-            <div class="p-5 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            <div class="p-5 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 bg-zinc-50/60">
                 @forelse($contracts as $cnt)
                     @php
                         $pct = $cnt->total_meters > 0
                             ? min(100, round(($cnt->delivered_meters / $cnt->total_meters) * 100))
                             : 0;
+                        $customerReceipt = $contractBagReceipts->get($cnt->id);
                     @endphp
-                    <div class="rounded-2xl border border-zinc-200 bg-zinc-50 p-4 space-y-3 hover:border-zinc-300 transition-colors">
+                    <div class="rounded-2xl border border-zinc-200 bg-white p-4 space-y-3 shadow-sm hover:border-zinc-400 hover:shadow-md transition-all">
 
                         {{-- Header --}}
                         <div class="flex items-start justify-between gap-2">
                             <div>
-                                <span class="inline-block px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-zinc-200 text-zinc-700 border border-zinc-300 mb-1">
+                                <span class="inline-block px-2 py-1 rounded-lg text-[10px] font-mono font-bold bg-zinc-900 text-white mb-1">
                                     {{ $cnt->contract_no }}
                                 </span>
                                 <div class="font-extrabold text-zinc-900 leading-tight">{{ $cnt->buyer_name }}</div>
-                                <div class="text-[11px] text-zinc-500 mt-0.5">{{ $cnt->fabric_quality }}</div>
+                                <div class="text-[11px] text-zinc-500 mt-1">{{ $cnt->fabric_quality }} <span class="mx-1 text-zinc-300">/</span> {{ $cnt->contract_type }}</div>
                             </div>
                             <span class="shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase
                                          {{ $cnt->status === 'active'
@@ -627,8 +628,8 @@
                                 <span class="text-zinc-500">Delivery Progress</span>
                                 <span class="text-zinc-800 font-mono font-black">{{ $pct }}%</span>
                             </div>
-                            <div class="w-full bg-zinc-200 rounded-full h-2 overflow-hidden">
-                                <div class="bg-zinc-800 h-2 rounded-full transition-all duration-500"
+                            <div class="w-full bg-zinc-100 rounded-full h-2.5 overflow-hidden">
+                                <div class="bg-gradient-to-r from-zinc-700 to-zinc-900 h-2.5 rounded-full transition-all duration-500"
                                      style="width: {{ $pct }}%"></div>
                             </div>
                             <div class="flex justify-between text-[10px] text-zinc-400 mt-1 font-mono">
@@ -638,25 +639,77 @@
                         </div>
 
                         {{-- Stats --}}
-                        <div class="grid grid-cols-3 gap-2 pt-2 border-t border-zinc-200 text-xs">
+                        <div class="grid grid-cols-3 gap-2 pt-3 border-t border-zinc-100 text-xs">
                             <div>
-                                <span class="block text-[9px] text-zinc-400 uppercase font-bold mb-0.5">Remaining</span>
-                                <strong class="text-zinc-900 font-mono text-sm">{{ number_format($cnt->remaining_meters) }}m</strong>
+                                <span class="block text-[9px] text-zinc-400 uppercase font-bold mb-1">Remaining</span>
+                                <strong class="text-zinc-900 font-mono text-sm">{{ number_format($cnt->remaining_meters, 0) }} <small class="text-[10px] text-zinc-400">m</small></strong>
                             </div>
                             <div>
-                                <span class="block text-[9px] text-zinc-400 uppercase font-bold mb-0.5">Rate / m</span>
-                                <strong class="text-zinc-900 font-mono">Rs.&nbsp;{{ $cnt->rate_per_meter }}</strong>
+                                <span class="block text-[9px] text-zinc-400 uppercase font-bold mb-1">Rate / m</span>
+                                <strong class="text-zinc-900 font-mono">Rs. {{ number_format((float) $cnt->rate_per_meter, 2) }}</strong>
                             </div>
                             <div>
-                                <span class="block text-[9px] text-zinc-400 uppercase font-bold mb-0.5">Total Value</span>
-                                <strong class="text-zinc-900 font-mono">Rs.&nbsp;{{ number_format($cnt->total_amount, 0) }}</strong>
+                                <span class="block text-[9px] text-zinc-400 uppercase font-bold mb-1">Contract Value</span>
+                                <strong class="text-zinc-900 font-mono">Rs. {{ number_format((float) $cnt->total_amount, 0) }}</strong>
                             </div>
                         </div>
 
                         @if($cnt->contract_type === 'Conversion')
-                            <a href="{{ route('factory.orders') }}" class="block rounded-xl border border-zinc-300 bg-white px-3 py-2 text-center text-[11px] font-bold text-zinc-700 hover:bg-zinc-100">
+                            <a href="{{ route('factory.orders') }}" class="block rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-center text-[11px] font-bold text-zinc-700 hover:bg-zinc-100">
                                 {{ $contractOrderNumbers->has($cnt->id) ? 'Linked order '.$contractOrderNumbers->get($cnt->id).' · Open Factory Orders' : 'Link to a Factory Order' }}
                             </a>
+                            @if($cnt->yarn_supply === 'customer' && $cnt->status === 'active')
+                                <div class="rounded-xl border border-amber-200 bg-amber-50/70 p-3">
+                                    <div class="flex items-start justify-between gap-3">
+                                        <div>
+                                            <div class="flex items-center gap-2 text-[11px] font-extrabold text-amber-950">
+                                                <span class="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-amber-100">📦</span>
+                                                Customer-owned yarn bags
+                                            </div>
+                                            <p class="mt-1 text-[10px] text-amber-900/70">
+                                                {{ number_format((float) ($customerReceipt?->bags_received ?? 0), 2) }} bags · {{ number_format((float) ($customerReceipt?->weight_received_kg ?? 0), 3) }} kg received
+                                                @if($customerReceipt)<span class="text-amber-800"> · {{ $customerReceipt->receipt_count }} receipt(s)</span>@endif
+                                            </p>
+                                        </div>
+                                        <a href="{{ route('bags.ledger') }}" class="shrink-0 text-[10px] font-bold text-amber-900 underline underline-offset-2">Bags log</a>
+                                    </div>
+                                    <details class="mt-3 rounded-lg border border-amber-200 bg-white">
+                                        <summary class="cursor-pointer px-3 py-2.5 text-center text-[11px] font-extrabold text-amber-950 hover:bg-amber-50">＋ Receive bags for this contract</summary>
+                                        <form method="POST" action="{{ route('bags.customer-receipts.store') }}" class="grid grid-cols-2 gap-2.5 border-t border-amber-100 p-3">
+                                            @csrf
+                                            <input type="hidden" name="sales_contract_id" value="{{ $cnt->id }}">
+                                            <label class="col-span-2 text-[10px] font-bold text-zinc-600">Customer challan / reference
+                                                <input name="reference_no" required maxlength="100" class="mt-1 w-full rounded-lg border-zinc-300 text-xs" placeholder="e.g. CH-108">
+                                            </label>
+                                            <label class="text-[10px] font-bold text-zinc-600">Yarn quality
+                                                <select name="quality" required class="mt-1 w-full rounded-lg border-zinc-300 text-xs">
+                                                    <option value="">Select quality</option>
+                                                    @foreach($yarnQualities as $yarnQuality)<option value="{{ $yarnQuality->name }}">{{ $yarnQuality->name }}</option>@endforeach
+                                                </select>
+                                            </label>
+                                            <label class="text-[10px] font-bold text-zinc-600">Component
+                                                <select name="component" required class="mt-1 w-full rounded-lg border-zinc-300 text-xs">
+                                                    <option value="warp">Taana / Warp</option><option value="weft">Baana / Weft</option>
+                                                </select>
+                                            </label>
+                                            <label class="text-[10px] font-bold text-zinc-600">Bags received
+                                                <input type="number" name="quantity_bags" min="0.01" step="0.01" required class="mt-1 w-full rounded-lg border-zinc-300 text-xs font-mono">
+                                            </label>
+                                            <label class="text-[10px] font-bold text-zinc-600">Measured weight (kg)
+                                                <input type="number" name="net_weight_kg" min="0.001" step="0.001" required class="mt-1 w-full rounded-lg border-zinc-300 text-xs font-mono">
+                                            </label>
+                                            <label class="text-[10px] font-bold text-zinc-600">Received date
+                                                <input type="date" name="transaction_date" value="{{ date('Y-m-d') }}" required class="mt-1 w-full rounded-lg border-zinc-300 text-xs">
+                                            </label>
+                                            <label class="text-[10px] font-bold text-zinc-600">Notes <span class="font-normal text-zinc-400">(optional)</span>
+                                                <input name="notes" maxlength="2000" class="mt-1 w-full rounded-lg border-zinc-300 text-xs" placeholder="Lot or delivery notes">
+                                            </label>
+                                            <p class="col-span-2 rounded-lg bg-amber-50 px-2.5 py-2 text-[10px] leading-relaxed text-amber-900">Recorded in Bags as customer property. It will not increase factory-owned yarn stock.</p>
+                                            <button type="submit" class="col-span-2 rounded-lg bg-zinc-900 px-3 py-2.5 text-[11px] font-extrabold text-white hover:bg-zinc-700">Save customer bag receipt</button>
+                                        </form>
+                                    </details>
+                                </div>
+                            @endif
                         @else
                             <a href="{{ route('invoices.invoices', ['contract_id' => $cnt->id]) }}#invoice-entry" class="block rounded-xl border border-zinc-300 bg-white px-3 py-2 text-center text-[11px] font-bold text-zinc-700 hover:bg-zinc-100">Create invoice for this contract</a>
                         @endif

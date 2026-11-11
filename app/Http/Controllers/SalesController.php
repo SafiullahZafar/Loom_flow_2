@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\BagTransaction;
 use App\Models\Customer;
 use App\Models\FabricStock;
 use App\Models\KachiParchi;
@@ -10,6 +11,7 @@ use App\Models\Sale;
 use App\Models\SalesContract;
 use App\Models\ThaanRoll;
 use App\Models\WorkOrder;
+use App\Models\YarnQuality;
 use App\Services\LedgerPostingService;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\RedirectResponse;
@@ -61,6 +63,8 @@ class SalesController extends Controller
         $fabrics = collect();
         $partas = collect();
         $contractOrderNumbers = collect();
+        $contractBagReceipts = collect();
+        $yarnQualities = collect();
         $jobOrders = collect();
         $rolls = collect();
         $kachis = collect();
@@ -68,8 +72,17 @@ class SalesController extends Controller
         $rejectedKachis = collect();
         if (in_array($page, ['dashboard', 'contracts'], true)) {
             $customers = Customer::where('status', 'active')->orderBy('name')->get();
+            $yarnQualities = YarnQuality::orderBy('name')->get();
             $contractOrderNumbers = WorkOrder::whereNotNull('sales_contract_id')
                 ->pluck('order_no', 'sales_contract_id');
+            $contractBagReceipts = BagTransaction::query()
+                ->selectRaw('sales_contract_id, SUM(quantity_bags) as bags_received, SUM(net_weight_kg) as weight_received_kg, COUNT(*) as receipt_count')
+                ->where('transaction_type', 'customer_sizing_receipt')
+                ->where('owner_type', 'customer')
+                ->whereNotNull('sales_contract_id')
+                ->groupBy('sales_contract_id')
+                ->get()
+                ->keyBy('sales_contract_id');
         }
 
         if ($page === 'contracts') {
@@ -107,6 +120,8 @@ class SalesController extends Controller
             'fabrics',
             'partas',
             'contractOrderNumbers',
+            'contractBagReceipts',
+            'yarnQualities',
             'jobOrders',
             'rolls',
             'kachis',
