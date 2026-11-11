@@ -602,6 +602,7 @@
                             ? min(100, round(($cnt->delivered_meters / $cnt->total_meters) * 100))
                             : 0;
                         $customerReceipt = $contractBagReceipts->get($cnt->id);
+                        $receiptReference = ($cnt->party_contract_no ?: $cnt->contract_no).'-BAG-'.str_pad((string) ((int) ($customerReceipt?->receipt_count ?? 0) + 1), 2, '0', STR_PAD_LEFT);
                     @endphp
                     <div class="rounded-2xl border border-zinc-200 bg-white p-4 space-y-3 shadow-sm hover:border-zinc-400 hover:shadow-md transition-all">
 
@@ -673,38 +674,33 @@
                                         </div>
                                         <a href="{{ route('bags.ledger') }}" class="shrink-0 text-[10px] font-bold text-amber-900 underline underline-offset-2">Bags log</a>
                                     </div>
-                                    <details class="mt-3 rounded-lg border border-amber-200 bg-white">
+                                    <details open class="mt-3 rounded-lg border border-amber-200 bg-white">
                                         <summary class="cursor-pointer px-3 py-2.5 text-center text-[11px] font-extrabold text-amber-950 hover:bg-amber-50">＋ Receive bags for this contract</summary>
                                         <form method="POST" action="{{ route('bags.customer-receipts.store') }}" class="grid grid-cols-2 gap-2.5 border-t border-amber-100 p-3">
                                             @csrf
                                             <input type="hidden" name="sales_contract_id" value="{{ $cnt->id }}">
-                                            <label class="col-span-2 text-[10px] font-bold text-zinc-600">Customer challan / reference
-                                                <input name="reference_no" required maxlength="100" class="mt-1 w-full rounded-lg border-zinc-300 text-xs" placeholder="e.g. CH-108">
+                                            <label class="col-span-2 text-[10px] font-bold text-zinc-600">Challan reference <span class="font-normal text-zinc-400">(suggested from contract; editable)</span>
+                                                <input name="reference_no" value="{{ $receiptReference }}" required maxlength="100" class="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-xs text-zinc-900 focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200">
                                             </label>
                                             <label class="text-[10px] font-bold text-zinc-600">Yarn quality
-                                                <select name="quality" required class="mt-1 w-full rounded-lg border-zinc-300 text-xs">
+                                                <select name="quality" required class="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-xs text-zinc-900 focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200">
                                                     <option value="">Select quality</option>
                                                     @foreach($yarnQualities as $yarnQuality)<option value="{{ $yarnQuality->name }}">{{ $yarnQuality->name }}</option>@endforeach
                                                 </select>
                                             </label>
-                                            <label class="text-[10px] font-bold text-zinc-600">Component
-                                                <select name="component" required class="mt-1 w-full rounded-lg border-zinc-300 text-xs">
-                                                    <option value="warp">Taana / Warp</option><option value="weft">Baana / Weft</option>
-                                                </select>
-                                            </label>
                                             <label class="text-[10px] font-bold text-zinc-600">Bags received
-                                                <input type="number" name="quantity_bags" min="0.01" step="0.01" required class="mt-1 w-full rounded-lg border-zinc-300 text-xs font-mono">
+                                                <input type="number" name="quantity_bags" min="0.01" step="0.01" required oninput="this.form.querySelector('[data-weight-output]').textContent = ((Number(this.value) || 0) * 45.359237).toFixed(3) + ' kg (' + ((Number(this.value) || 0) * 100).toFixed(2) + ' lb)'" class="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-xs font-mono text-zinc-900 focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200">
                                             </label>
-                                            <label class="text-[10px] font-bold text-zinc-600">Measured weight (kg)
-                                                <input type="number" name="net_weight_kg" min="0.001" step="0.001" required class="mt-1 w-full rounded-lg border-zinc-300 text-xs font-mono">
+                                            <label class="text-[10px] font-bold text-zinc-600">Cones in each bag
+                                                <input type="number" name="cones_per_bag" min="1" max="1000" step="1" required class="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-xs font-mono text-zinc-900 focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200">
                                             </label>
                                             <label class="text-[10px] font-bold text-zinc-600">Received date
-                                                <input type="date" name="transaction_date" value="{{ date('Y-m-d') }}" required class="mt-1 w-full rounded-lg border-zinc-300 text-xs">
+                                                <input type="date" name="transaction_date" value="{{ date('Y-m-d') }}" required class="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-xs text-zinc-900 focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200">
                                             </label>
                                             <label class="text-[10px] font-bold text-zinc-600">Notes <span class="font-normal text-zinc-400">(optional)</span>
-                                                <input name="notes" maxlength="2000" class="mt-1 w-full rounded-lg border-zinc-300 text-xs" placeholder="Lot or delivery notes">
+                                                <input name="notes" maxlength="2000" class="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-xs text-zinc-900 focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200" placeholder="Lot or delivery notes">
                                             </label>
-                                            <p class="col-span-2 rounded-lg bg-amber-50 px-2.5 py-2 text-[10px] leading-relaxed text-amber-900">Recorded in Bags as customer property. It will not increase factory-owned yarn stock.</p>
+                                            <p class="col-span-2 rounded-lg bg-amber-50 px-2.5 py-2 text-[10px] leading-relaxed text-amber-900">Each bag is counted as 100 lb. Total weight: <strong data-weight-output>0.000 kg (0.00 lb)</strong>. Saved as customer property, outside factory stock.</p>
                                             <button type="submit" class="col-span-2 rounded-lg bg-zinc-900 px-3 py-2.5 text-[11px] font-extrabold text-white hover:bg-zinc-700">Save customer bag receipt</button>
                                         </form>
                                     </details>

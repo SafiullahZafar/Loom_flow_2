@@ -396,10 +396,9 @@ class BagController extends Controller
         $validated = $request->validate([
             'sales_contract_id' => 'required|exists:sales_contracts,id',
             'reference_no' => 'required|string|max:100',
-            'component' => 'required|in:warp,weft',
             'quality' => 'required|string|exists:yarn_qualities,name',
             'quantity_bags' => 'required|numeric|gt:0|decimal:0,2',
-            'net_weight_kg' => 'required|numeric|gt:0|decimal:0,3',
+            'cones_per_bag' => 'required|integer|min:1|max:1000',
             'transaction_date' => 'required|date',
             'notes' => 'nullable|string|max:2000',
         ]);
@@ -419,6 +418,7 @@ class BagController extends Controller
                 ]);
             }
 
+            $weightKg = round((float) $validated['quantity_bags'] * 100 * 0.45359237, 3);
             $receipt = BagTransaction::create([
                 'transaction_type' => 'customer_sizing_receipt',
                 'reference_no' => $validated['reference_no'],
@@ -432,17 +432,18 @@ class BagController extends Controller
                 'work_order_id' => $order?->id,
                 'sales_contract_id' => $contract->id,
                 'owner_type' => 'customer',
-                'component' => $validated['component'],
-                'net_weight_kg' => $validated['net_weight_kg'],
+                'component' => null,
+                'cones_per_bag' => $validated['cones_per_bag'],
+                'net_weight_kg' => $weightKg,
             ]);
 
             if ($order !== null) {
                 YarnMovement::create([
                     'work_order_id' => $order->id,
-                    'component' => $validated['component'],
+                    'component' => 'combined',
                     'owner_type' => 'customer',
                     'movement_type' => 'receipt',
-                    'weight_kg' => $validated['net_weight_kg'],
+                    'weight_kg' => $weightKg,
                     'bags' => $validated['quantity_bags'],
                     'yarn_count' => $validated['quality'],
                     'lot_no' => $validated['reference_no'],

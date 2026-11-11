@@ -40,7 +40,7 @@
             <div><h2 class="font-extrabold text-[#133e2b]">Yarn still in custody</h2><p class="text-xs text-stone-500">Customer balance must be returned or settled before this job can close. Factory yarn remains visible for reconciliation.</p></div>
             <div class="overflow-x-auto"><table class="w-full text-xs"><thead><tr class="border-b text-left text-[10px] uppercase text-stone-500"><th class="py-2">Component</th><th class="py-2">Owner</th><th class="py-2 text-right">Balance kg</th></tr></thead><tbody class="divide-y">
                 @forelse($yarnBalances as $balance)
-                    <tr><td class="py-2 font-bold">{{ $balance->component === 'warp' ? 'Taana' : 'Baana' }}</td><td class="py-2">{{ ucfirst($balance->owner_type) }}</td><td class="py-2 text-right font-mono {{ $balance->owner_type === 'customer' && (float) $balance->balance_kg > 0.001 ? 'font-bold text-red-700' : '' }}">{{ number_format((float) $balance->balance_kg, 3) }}</td></tr>
+                    <tr><td class="py-2 font-bold">{{ ['warp' => 'Taana', 'weft' => 'Baana', 'combined' => 'Combined yarn'][$balance->component] ?? ucfirst($balance->component) }}</td><td class="py-2">{{ ucfirst($balance->owner_type) }}</td><td class="py-2 text-right font-mono {{ $balance->owner_type === 'customer' && (float) $balance->balance_kg > 0.001 ? 'font-bold text-red-700' : '' }}">{{ number_format((float) $balance->balance_kg, 3) }}</td></tr>
                 @empty
                     <tr><td colspan="3" class="py-3 text-stone-400">No recorded yarn movements.</td></tr>
                 @endforelse

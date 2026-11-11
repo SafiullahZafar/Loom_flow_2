@@ -182,7 +182,7 @@ class FactoryOrderController extends Controller
                     $receipt->update(['work_order_id' => $order->id]);
                     YarnMovement::create([
                         'work_order_id' => $order->id,
-                        'component' => $receipt->component,
+                        'component' => $receipt->component ?? 'combined',
                         'owner_type' => 'customer',
                         'movement_type' => 'receipt',
                         'weight_kg' => $receipt->net_weight_kg,

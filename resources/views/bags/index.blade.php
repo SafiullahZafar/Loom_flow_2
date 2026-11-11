@@ -372,7 +372,9 @@
                             <td class="px-4 py-3 font-medium text-zinc-700">{{ $tx->quality }}</td>
                             <td class="px-4 py-3 text-right font-mono font-bold text-zinc-900">
                                 {{ number_format((float) $tx->quantity_bags, 2) }} Bags
+                                @if($tx->cones_per_bag)<span class="block text-[10px] font-medium text-zinc-500">{{ number_format((int) $tx->cones_per_bag) }} cones / bag</span>@endif
                                 @if($tx->net_weight_kg)<span class="block text-[10px] font-medium text-zinc-500">{{ number_format((float) $tx->net_weight_kg, 3) }} kg</span>@endif
+                                @if($tx->transaction_type === 'customer_sizing_receipt')<span class="block text-[10px] font-medium text-zinc-500">{{ number_format((float) $tx->quantity_bags * 100, 2) }} lb · 100 lb / bag</span>@endif
                             </td>
                             <td class="px-4 py-3 text-zinc-500">{{ $tx->source }}</td>
                             <td class="px-4 py-3 text-zinc-700 font-semibold">{{ $tx->destination }}</td>

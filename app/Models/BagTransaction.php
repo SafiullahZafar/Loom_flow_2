@@ -20,12 +20,13 @@ class BagTransaction extends Model
         'party_name',
         'transaction_date',
         'notes',
-        'work_order_id', 'sales_contract_id', 'owner_type', 'component', 'net_weight_kg',
+        'work_order_id', 'sales_contract_id', 'owner_type', 'component', 'net_weight_kg', 'cones_per_bag',
     ];
 
     protected $casts = [
         'transaction_date' => 'date',
         'quantity_bags' => 'decimal:2',
+        'cones_per_bag' => 'integer',
     ];
 
     public function sizingSlip(): HasOne
