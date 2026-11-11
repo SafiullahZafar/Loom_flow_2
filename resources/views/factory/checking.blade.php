@@ -16,12 +16,46 @@
         <section class="card p-6 lg:col-span-3 space-y-4 shadow-2xs">
             <div class="pb-3 border-b border-[#e2e8e0]">
                 <h2 class="font-extrabold text-base text-[#133e2b]">Enter Office Checking Report</h2>
-                <p class="text-xs text-stone-500">Record the checking date, loom number, and every Thaan's own marking and measured length. All enter as A-grade.</p>
+                <p class="text-xs text-stone-500">Choose own or job work, link the order or contract, and record each Thaan marking and measured length into that order's fabric quality stock.</p>
             </div>
 
             <form method="POST" action="{{ route('factory.checking.store') }}" id="checking-form" class="space-y-4">
                 @csrf
                 <div class="grid sm:grid-cols-2 gap-3.5">
+                    <label class="text-xs font-bold text-stone-700">
+                        Work Type
+                        <select name="work_type" id="checking-work-type" required class="w-full mt-1 border border-[#e2e8e0] rounded-xl p-2.5 text-xs bg-white">
+                            <option value="own">Own Factory Work</option>
+                            <option value="job">Job Work</option>
+                        </select>
+                    </label>
+                    <label class="text-xs font-bold text-stone-700" id="own-order-field">
+                        Own Production Order
+                        <select name="work_order_id" id="own-work-order" required class="w-full mt-1 border border-[#e2e8e0] rounded-xl p-2.5 text-xs bg-white">
+                            <option value="">Choose own order</option>
+                            @foreach($orders->where('type', 'own') as $order)
+                                <option value="{{ $order->id }}" data-quality-id="{{ $order->fabric_stock_id }}">{{ $order->order_no }} · {{ $order->fabricStock?->quality_name }}</option>
+                            @endforeach
+                        </select>
+                    </label>
+                    <label class="hidden text-xs font-bold text-stone-700" id="job-order-field">
+                        Job Contract
+                        <select name="work_order_id" id="job-work-order" disabled class="w-full mt-1 border border-[#e2e8e0] rounded-xl p-2.5 text-xs bg-white">
+                            <option value="">Choose job contract</option>
+                            @foreach($orders->where('type', 'job')->filter(fn ($order) => $order->contract) as $order)
+                                <option value="{{ $order->id }}" data-quality-id="{{ $order->fabric_stock_id }}">{{ $order->contract->contract_no }} · {{ $order->customer?->name ?? $order->contract->buyer_name }} · {{ $order->order_no }}</option>
+                            @endforeach
+                        </select>
+                    </label>
+                    <label class="text-xs font-bold text-stone-700">
+                        Fabric Quality
+                        <select name="fabric_stock_id" id="checking-quality" required class="w-full mt-1 border border-[#e2e8e0] rounded-xl p-2.5 text-xs bg-white">
+                            <option value="">Select an order first</option>
+                            @foreach($fabrics as $fabric)
+                                <option value="{{ $fabric->id }}">{{ $fabric->quality_name }}</option>
+                            @endforeach
+                        </select>
+                    </label>
                     <label class="text-xs font-bold text-stone-700">
                         Date checked
                         <input name="checked_on" type="date" required value="{{ date('Y-m-d') }}" class="w-full mt-1 border border-[#e2e8e0] rounded-xl p-2.5 text-xs focus:outline-none focus:border-[#133e2b] focus:ring-1 focus:ring-[#133e2b]">
@@ -100,7 +134,7 @@
                                 <td class="p-2.5 text-stone-600">{{ $a->order?->fabricStock?->quality_name }}</td>
                             </tr>
                         @empty
-                            <tr><td colspan="3" class="p-4 text-center text-stone-400 italic">Allocate a loom first in Factory Orders.</td></tr>
+                            <tr><td colspan="3" class="p-4 text-center text-stone-400 italic">Allocate a loom first in Sizing &gt; Beams Tracking.</td></tr>
                         @endforelse
                     </tbody>
                 </table>
@@ -115,22 +149,24 @@
         <div class="pb-3 border-b border-[#e2e8e0] flex items-center justify-between">
             <div>
                 <h2 class="font-extrabold text-base text-[#133e2b]">Checked Thaan Stock and History</h2>
-                <p class="text-xs text-stone-500">Every inspected roll ready for dispatch or sales.</p>
+                <p class="text-xs text-stone-500">Every saved Thaan with its work type, contract or order, quality, marking, length, owner, and checking notes.</p>
             </div>
         </div>
 
         <div class="overflow-x-auto">
-            <table class="min-w-full text-xs">
+            <table class="min-w-[1400px] w-full text-xs">
                 <thead>
                     <tr class="bg-stone-50 border-b border-stone-200 text-[10px] font-bold uppercase tracking-wider text-stone-600">
                         <th class="text-left p-3">Checked</th>
                         <th class="text-left p-3">Thaan marking</th>
+                        <th class="p-3">Work type</th>
+                        <th class="text-left p-3">Contract / Order</th>
+                        <th class="text-left p-3">Quality</th>
                         <th class="p-3">Loom</th>
-                        <th class="p-3">Order</th>
-                        <th class="p-3">Quality</th>
                         <th class="text-right p-3">Measured (m)</th>
                         <th class="text-center p-3">Owner</th>
                         <th class="text-center p-3">Status</th>
+                        <th class="text-left p-3">Checking notes</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-stone-100">
@@ -138,9 +174,17 @@
                         <tr class="hover:bg-stone-50/70 transition-colors">
                             <td class="p-3 text-stone-500">{{ $r->checked_on }}</td>
                             <td class="p-3 font-bold text-stone-900">{{ $r->roll_no }}</td>
+                            <td class="text-center p-3 text-stone-700">{{ $r->order?->type === 'job' ? 'Job Work' : 'Own Factory' }}</td>
+                            <td class="p-3 text-stone-700">
+                                @if($r->order?->type === 'job')
+                                    {{ $r->order?->contract?->contract_no ?? 'Contract not linked' }}
+                                    <span class="block text-[10px] text-stone-400">Order {{ $r->order?->order_no }}</span>
+                                @else
+                                    {{ $r->order?->order_no ?? 'Order unavailable' }}
+                                @endif
+                            </td>
+                            <td class="p-3 text-stone-700">{{ $r->fabricStock?->quality_name ?? $r->order?->fabricStock?->quality_name }}</td>
                             <td class="p-3 text-stone-700">{{ $r->loom_no }}</td>
-                            <td class="p-3 text-stone-700">{{ $r->order?->order_no }}</td>
-                            <td class="p-3 text-stone-700">{{ $r->order?->fabricStock?->quality_name }}</td>
                             <td class="text-right p-3 font-black text-[#133e2b] tabular-nums">{{ number_format((float)$r->length_meters,2) }}m</td>
                             <td class="text-center p-3">
                                 <span class="inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold {{ $r->owner_type === 'customer' ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-[#133e2b]' }}">
@@ -152,9 +196,10 @@
                                     {{ str_replace('_',' ',$r->status) }}
                                 </span>
                             </td>
+                            <td class="p-3 text-stone-600">{{ $r->notes ?: '—' }}</td>
                         </tr>
                     @empty
-                        <tr><td class="p-6 text-center text-stone-400 italic" colspan="8">No checked Thaans yet.</td></tr>
+                        <tr><td class="p-6 text-center text-stone-400 italic" colspan="10">No checked Thaans yet.</td></tr>
                     @endforelse
                 </tbody>
             </table>
@@ -198,6 +243,34 @@
 (function(){
     let n = 1;
     const table = document.querySelector('#roll-table tbody');
+    const workType = document.getElementById('checking-work-type');
+    const ownOrderField = document.getElementById('own-order-field');
+    const jobOrderField = document.getElementById('job-order-field');
+    const ownOrder = document.getElementById('own-work-order');
+    const jobOrder = document.getElementById('job-work-order');
+    const quality = document.getElementById('checking-quality');
+    const updateWorkSelection = () => {
+        const isJob = workType.value === 'job';
+        ownOrderField.classList.toggle('hidden', isJob);
+        jobOrderField.classList.toggle('hidden', !isJob);
+        ownOrder.disabled = isJob;
+        ownOrder.required = !isJob;
+        jobOrder.disabled = !isJob;
+        jobOrder.required = isJob;
+        updateQuality();
+    };
+    const updateQuality = () => {
+        const selectedOrder = workType.value === 'job' ? jobOrder : ownOrder;
+        const qualityId = selectedOrder.selectedOptions[0]?.dataset.qualityId || '';
+        Array.from(quality.options).forEach((option) => {
+            option.disabled = option.value !== '' && option.value !== qualityId;
+        });
+        quality.value = qualityId;
+    };
+    workType.addEventListener('change', updateWorkSelection);
+    ownOrder.addEventListener('change', updateQuality);
+    jobOrder.addEventListener('change', updateQuality);
+    updateWorkSelection();
     const recalc = () => {
         const l = [...table.querySelectorAll('input[type=number]')];
         document.getElementById('checked-total').textContent = l.reduce((t,x) => t + (Number(x.value)||0), 0).toFixed(2);

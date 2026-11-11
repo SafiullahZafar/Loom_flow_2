@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\FabricStock;
 use App\Models\LoomAssignment;
 use App\Models\Production;
 use App\Models\ThaanRoll;
@@ -21,8 +22,9 @@ class FactoryCheckingController extends Controller
         return view('factory.checking', [
             'assignments' => LoomAssignment::with('order.fabricStock')->whereNull('end_date')->orderBy('loom_no')->get(),
             'looms' => config('loomflow.looms'),
-            'orders' => WorkOrder::with('fabricStock')->whereIn('status', ['active', 'fulfilled'])->orderBy('order_no')->get(),
-            'rolls' => ThaanRoll::with('order.fabricStock')->latest('checked_on')->latest('id')->paginate(40),
+            'orders' => WorkOrder::with(['fabricStock', 'contract'])->whereIn('status', ['active', 'fulfilled'])->orderBy('order_no')->get(),
+            'fabrics' => FabricStock::orderBy('quality_name')->get(),
+            'rolls' => ThaanRoll::with(['order.fabricStock', 'order.contract'])->latest('checked_on')->latest('id')->paginate(40),
             'loomMeters' => Production::selectRaw('loom_no, production_date, SUM(net_meters_produced) as loom_meters')
                 ->groupBy('loom_no', 'production_date')->orderByDesc('production_date')->limit(40)->get(),
         ]);
@@ -32,6 +34,9 @@ class FactoryCheckingController extends Controller
     {
         $data = $request->validate([
             'checked_on' => 'required|date',
+            'work_type' => 'required|in:own,job',
+            'work_order_id' => 'required|exists:work_orders,id',
+            'fabric_stock_id' => 'required|exists:fabric_stocks,id',
             'loom_no' => ['required', 'string', Rule::in(config('loomflow.looms'))],
             'rolls' => 'required|array|min:1|max:200',
             'rolls.*.roll_no' => 'required|string|max:100|distinct|unique:thaan_rolls,roll_no',
@@ -39,17 +44,27 @@ class FactoryCheckingController extends Controller
             'notes' => 'nullable|string|max:1000',
         ]);
         DB::transaction(function () use ($data, $stock): void {
+            $order = WorkOrder::with(['fabricStock', 'contract'])->whereKey($data['work_order_id'])->lockForUpdate()->firstOrFail();
+            if ($order->type !== $data['work_type']) {
+                throw ValidationException::withMessages(['work_order_id' => 'Choose an order that matches the selected work type.']);
+            }
+            if ($order->type === 'job' && (! $order->contract || $order->contract->contract_type !== 'Conversion')) {
+                throw ValidationException::withMessages(['work_order_id' => 'Choose a job-work order linked to a conversion contract.']);
+            }
+            if ((int) $order->fabric_stock_id !== (int) $data['fabric_stock_id']) {
+                throw ValidationException::withMessages(['fabric_stock_id' => 'The quality must match the selected order or contract.']);
+            }
+            if (! in_array($order->status, ['active', 'fulfilled'], true)) {
+                throw ValidationException::withMessages(['work_order_id' => 'Choose an active production order.']);
+            }
             $assignment = LoomAssignment::where('loom_no', $data['loom_no'])
+                ->where('work_order_id', $order->id)
                 ->where('start_date', '<=', $data['checked_on'])
                 ->where(function ($q) use ($data): void {
                     $q->whereNull('end_date')->orWhere('end_date', '>=', $data['checked_on']);
                 })->lockForUpdate()->first();
             if (! $assignment) {
                 throw ValidationException::withMessages(['loom_no' => 'No order assigned to this loom for the checking date.']);
-            }
-            $order = WorkOrder::with('fabricStock')->findOrFail($assignment->work_order_id);
-            if ($order->status === 'closed') {
-                throw ValidationException::withMessages(['checked_on' => 'This production order is already closed.']);
             }
             foreach ($data['rolls'] as $entry) {
                 ThaanRoll::create([
@@ -65,6 +80,6 @@ class FactoryCheckingController extends Controller
             $stock->move($order->fabricStock, $total, count($data['rolls']), $data['checked_on'], 'Checking report '.$data['loom_no'].' / '.$order->order_no);
         });
 
-        return back()->with('success', 'Checking report saved. Only the measured Thaan lengths were added to stock.');
+        return back()->with('success', 'Checking report saved. The selected order quality and measured Thaan lengths were added to stock.');
     }
 }
