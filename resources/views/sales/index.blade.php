@@ -295,9 +295,29 @@
                 <h2 class="text-base font-extrabold text-zinc-900">Create a buyer contract</h2>
                 <p class="mt-1 text-xs text-zinc-500">Conversion contracts can be linked to a job work order in Factory → Orders. Grey Sale contracts reserve finished stock for sales.</p>
             </div>
-            <form method="POST" action="{{ route('sales.contract.store') }}" class="space-y-5">
+            <style>
+                .contract-form input:not([type="checkbox"]), .contract-form select, .contract-form textarea {
+                    width: 100%;
+                    border: 1px solid #d4d4d8;
+                    border-radius: 0.75rem;
+                    background: #fff;
+                    padding: 0.625rem 0.75rem;
+                    color: #18181b;
+                    font-size: 0.875rem;
+                    line-height: 1.25rem;
+                }
+                .contract-form input:focus, .contract-form select:focus, .contract-form textarea:focus {
+                    border-color: #71717a;
+                    outline: 2px solid transparent;
+                    box-shadow: 0 0 0 2px rgb(161 161 170 / 25%);
+                }
+                .contract-form input[type="checkbox"] { accent-color: #18181b; }
+                .contract-form .tax-rate-input { width: 7rem; }
+            </style>
+            <form method="POST" action="{{ route('sales.contract.store') }}" class="contract-form space-y-5">
                 @csrf
                 <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                <h3 class="col-span-full border-b border-zinc-200 pb-2 text-xs font-extrabold uppercase tracking-wider text-zinc-500">Buyer and agreement</h3>
                 <label class="text-xs font-semibold text-zinc-600">Our contract number
                     <input name="contract_no" value="{{ old('contract_no') }}" required maxlength="100" class="mt-1 w-full rounded-xl border-zinc-300 text-sm" placeholder="e.g. C-2026-001">
                 </label>
@@ -321,6 +341,14 @@
                         <option value="Conversion" @selected(old('contract_type', 'Conversion') === 'Conversion')>Job work / Conversion</option>
                         <option value="Grey Sale" @selected(old('contract_type') === 'Grey Sale')>Grey fabric sale</option>
                     </select>
+                </label>
+                <label class="text-xs font-semibold text-zinc-600">Who supplies the yarn bags?
+                    <select name="yarn_supply" required>
+                        <option value="">Choose supply source</option>
+                        <option value="customer" @selected(old('yarn_supply') === 'customer')>Customer supplies the yarn bags</option>
+                        <option value="factory" @selected(old('yarn_supply') === 'factory')>Factory supplies the yarn</option>
+                    </select>
+                    <span class="mt-1 block text-[10px] font-normal text-zinc-500">Customer supply will be carried to the linked order. Record received bags in the Bags module.</span>
                 </label>
                 <label class="text-xs font-semibold text-zinc-600">Loom type
                     <input name="loom_type" value="{{ old('loom_type') }}" maxlength="40" class="mt-1 w-full rounded-xl border-zinc-300 text-sm">
@@ -358,6 +386,7 @@
                 <label class="text-xs font-semibold text-zinc-600">Party contract number
                     <input name="party_contract_no" value="{{ old('party_contract_no') }}" maxlength="80" class="mt-1 w-full rounded-xl border-zinc-300 text-sm">
                 </label>
+                <h3 class="col-span-full mt-2 border-b border-zinc-200 pb-2 text-xs font-extrabold uppercase tracking-wider text-zinc-500">Fabric quality and costing</h3>
                 <label class="text-xs font-semibold text-zinc-600">Quality code
                     <input name="quality_code" value="{{ old('quality_code') }}" maxlength="40" class="mt-1 w-full rounded-xl border-zinc-300 text-sm">
                 </label>
@@ -403,6 +432,7 @@
                 <label class="text-xs font-semibold text-zinc-600">Broker commission (Rs/metre)
                     <input id="inpContractCommission" type="number" name="broker_commission_per_meter" value="{{ old('broker_commission_per_meter', 0) }}" min="0" step="0.0001" oninput="calculateContractPreview()" class="mt-1 w-full rounded-xl border-zinc-300 text-sm">
                 </label>
+                <h3 class="col-span-full mt-2 border-b border-zinc-200 pb-2 text-xs font-extrabold uppercase tracking-wider text-zinc-500">Broker and payment terms</h3>
                 <label class="text-xs font-semibold text-zinc-600">KP percentage
                     <input type="number" name="kp_percentage" value="{{ old('kp_percentage', 0) }}" min="0" max="100" step="0.001" class="mt-1 w-full rounded-xl border-zinc-300 text-sm">
                 </label>
@@ -431,7 +461,7 @@
                 <section class="flex flex-wrap items-center gap-4 rounded-xl border border-zinc-200 bg-white p-3 text-xs">
                     <label class="flex items-center gap-2 font-bold"><input type="checkbox" name="tax_enabled" id="inpContractTaxEnabled" value="1" @checked(old('tax_enabled')) onchange="calculateContractPreview()"> Optional tax estimate</label>
                     <label class="font-semibold">Tax rate (decimal, e.g. 0.17)
-                        <input id="inpContractTaxRate" name="tax_rate" type="number" min="0" max="1" step="0.0001" value="{{ old('tax_rate', 0) }}" oninput="calculateContractPreview()" class="ml-2 w-28 rounded-lg border-zinc-300 text-sm">
+                        <input id="inpContractTaxRate" name="tax_rate" type="number" min="0" max="1" step="0.0001" value="{{ old('tax_rate', 0) }}" oninput="calculateContractPreview()" class="tax-rate-input ml-2 rounded-lg border-zinc-300 text-sm">
                     </label>
                 </section>
                 <section class="rounded-2xl border border-zinc-200 bg-zinc-50 p-4">
@@ -635,6 +665,7 @@
                             <summary class="cursor-pointer px-3 py-2.5 text-[11px] font-bold text-zinc-700">View contract details and costing</summary>
                             <div class="grid grid-cols-2 gap-x-4 gap-y-2 border-t border-zinc-100 px-3 py-3 text-[10px] sm:grid-cols-3">
                                 <div><span class="text-zinc-400">Contract type / loom</span><strong class="mt-0.5 block text-zinc-800">{{ $cnt->contract_type ?? '—' }} / {{ $cnt->loom_type ?? '—' }}</strong></div>
+                                <div><span class="text-zinc-400">Yarn bag supply</span><strong class="mt-0.5 block text-zinc-800">{{ $cnt->yarn_supply === 'customer' ? 'Customer supplies' : ($cnt->yarn_supply === 'factory' ? 'Factory supplies' : 'Mixed / not specified') }}</strong></div>
                                 <div><span class="text-zinc-400">Contract date / delivery</span><strong class="mt-0.5 block text-zinc-800">{{ $cnt->start_date?->format('d M Y') ?? '—' }} / {{ $cnt->end_date?->format('d M Y') ?? '—' }}</strong></div>
                                 <div><span class="text-zinc-400">Party contract #</span><strong class="mt-0.5 block text-zinc-800">{{ $cnt->party_contract_no ?? '—' }}</strong></div>
                                 <div><span class="text-zinc-400">Buyer code / GST</span><strong class="mt-0.5 block text-zinc-800">{{ $cnt->buyer_code ?? '—' }} / {{ $cnt->buyer_gst ?? '—' }}</strong></div>

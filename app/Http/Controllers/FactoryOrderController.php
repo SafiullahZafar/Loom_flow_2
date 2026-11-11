@@ -165,8 +165,8 @@ class FactoryOrderController extends Controller
                 'sales_contract_id' => $contract?->id, 'fabric_stock_id' => $fabric->id,
                 'customer_id' => $contract?->customer_id, 'parta_record_id' => $parta->id, 'party_name' => $party,
                 'target_meters' => $target, 'rate_per_pick' => $rate,
-                'warp_supply' => $data['type'] === 'own' ? 'factory' : 'mixed',
-                'weft_supply' => $data['type'] === 'own' ? 'factory' : 'mixed',
+                'warp_supply' => $data['type'] === 'own' ? 'factory' : ($contract?->yarn_supply ?? 'mixed'),
+                'weft_supply' => $data['type'] === 'own' ? 'factory' : ($contract?->yarn_supply ?? 'mixed'),
                 'start_date' => $data['start_date'], 'notes' => $data['notes'] ?? null,
             ]);
         });

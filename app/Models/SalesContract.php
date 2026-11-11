@@ -29,6 +29,7 @@ class SalesContract extends Model
         'notes',
         'party_contract_no',
         'contract_type',
+        'yarn_supply',
         'loom_type',
         'buyer_code',
         'buyer_gst',

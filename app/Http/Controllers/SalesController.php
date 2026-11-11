@@ -290,6 +290,7 @@ class SalesController extends Controller
             'contract_no' => 'required|string|max:100|unique:sales_contracts,contract_no',
             'party_contract_no' => 'nullable|string|max:80',
             'contract_type' => 'required|in:Conversion,Grey Sale',
+            'yarn_supply' => 'required|in:customer,factory',
             'loom_type' => 'nullable|string|max:40',
             'buyer_code' => 'nullable|string|max:40',
             'customer_id' => 'required|exists:customers,id',
