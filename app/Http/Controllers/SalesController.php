@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\Customer;
 use App\Models\FabricStock;
+use App\Models\KachiParchi;
+use App\Models\PartaRecord;
 use App\Models\Sale;
 use App\Models\SalesContract;
 use App\Models\ThaanRoll;
@@ -55,9 +57,36 @@ class SalesController extends Controller
         Collection|LengthAwarePaginator $sales,
         Collection|LengthAwarePaginator $contracts
     ): View {
-        $contractOptions = SalesContract::with('customer')->where('status', 'active')->latest('start_date')->get();
-        $customers = Customer::where('status', 'active')->orderBy('name')->get();
-        $fabrics = FabricStock::orderBy('quality_name')->get();
+        $customers = collect();
+        $fabrics = collect();
+        $partas = collect();
+        $contractOrderNumbers = collect();
+        $jobOrders = collect();
+        $rolls = collect();
+        $kachis = collect();
+        $pendingKachis = collect();
+        $rejectedKachis = collect();
+        if (in_array($page, ['dashboard', 'contracts'], true)) {
+            $customers = Customer::where('status', 'active')->orderBy('name')->get();
+            $contractOrderNumbers = WorkOrder::whereNotNull('sales_contract_id')
+                ->pluck('order_no', 'sales_contract_id');
+        }
+
+        if ($page === 'contracts') {
+            $fabrics = FabricStock::orderBy('quality_name')->get();
+            $partas = PartaRecord::whereIn('fabric_stock_id', $fabrics->modelKeys())
+                ->orderByDesc('version')->get()->unique('fabric_stock_id')->keyBy('fabric_stock_id');
+        }
+
+        if ($page === 'dashboard') {
+            $jobOrders = WorkOrder::with(['fabricStock', 'parta', 'customer', 'contract'])
+                ->where('type', 'job')->whereIn('status', ['active', 'fulfilled'])->orderBy('order_no')->get();
+            $rolls = ThaanRoll::with('order')->whereIn('status', ['ready', 'returned_ready', 'returned_hold', 'dispatched'])->orderByDesc('id')->get();
+            $kachis = KachiParchi::with(['order.fabricStock', 'order.customer', 'items.roll', 'pakki', 'returns'])->latest('id')->paginate(30);
+            $pendingKachis = KachiParchi::with('order')->whereDoesntHave('pakki')->orderByDesc('id')->get();
+            $rejectedKachis = KachiParchi::with(['pakki', 'items.roll'])
+                ->whereHas('pakki', fn ($query) => $query->where('rejected_meters', '>', 0))->orderByDesc('id')->get();
+        }
 
         // Metrics
         $totalSalesCount = Sale::count();
@@ -74,9 +103,15 @@ class SalesController extends Controller
             'page',
             'sales',
             'contracts',
-            'contractOptions',
             'customers',
             'fabrics',
+            'partas',
+            'contractOrderNumbers',
+            'jobOrders',
+            'rolls',
+            'kachis',
+            'pendingKachis',
+            'rejectedKachis',
             'totalSalesCount',
             'totalRevenue',
             'totalMetersSold',
@@ -334,7 +369,7 @@ class SalesController extends Controller
             return $contract;
         });
 
-        return redirect()->route('sales.index')
+        return redirect()->route('sales.contracts')
             ->with('success', "Sales Contract {$contract->contract_no} for {$contract->buyer_name} ({$contract->total_meters}m) registered successfully!");
     }
 }

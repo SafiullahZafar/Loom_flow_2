@@ -23,19 +23,9 @@ use Illuminate\View\View;
 
 class FactoryParchiController extends Controller
 {
-    public function index(): View
+    public function index(): RedirectResponse
     {
-        return view('factory.dispatch', [
-            'jobOrders' => WorkOrder::with(['fabricStock', 'parta', 'customer'])->where('type', 'job')->whereIn('status', ['active', 'fulfilled'])->orderBy('order_no')->get(),
-            'customers' => Customer::where('status', 'active')->orderBy('name')->get(),
-            'allJobOrders' => WorkOrder::with('customer')->where('type', 'job')->orderBy('order_no')->get(),
-            'rolls' => ThaanRoll::with('order')->whereIn('status', ['ready', 'returned_ready', 'returned_hold', 'dispatched'])->orderByDesc('id')->get(),
-            'kachis' => KachiParchi::with(['order.fabricStock', 'order.customer', 'items.roll', 'pakki', 'returns'])->latest('id')->paginate(30),
-            'pakkis' => PakkiParchi::with('kachi.order')->latest('id')->limit(20)->get(),
-            'returns' => ThaanReturn::with('roll')->latest('id')->limit(25)->get(),
-            'pendingKachis' => KachiParchi::with('order')->whereDoesntHave('pakki')->orderByDesc('id')->get(),
-            'rejectedKachis' => KachiParchi::with(['pakki', 'items.roll'])->whereHas('pakki', fn ($q) => $q->where('rejected_meters', '>', 0))->orderByDesc('id')->get(),
-        ]);
+        return redirect()->route('sales.index');
     }
 
     public function dispatch(Request $request, FactoryStockService $stock): RedirectResponse

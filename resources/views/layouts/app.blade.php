@@ -125,8 +125,6 @@
                 $pageTitle = 'Factory Orders & Parta';
             } elseif (str_starts_with($currentRoute, 'factory.checking')) {
                 $pageTitle = 'Checking / Thaan Stock';
-            } elseif (str_starts_with($currentRoute, 'factory.parchis')) {
-                $pageTitle = 'Kachi / Pakki / Returns';
             } elseif (str_starts_with($currentRoute, 'factory.reports')) {
                 $pageTitle = 'Factory Reports & Wages';
             } elseif (str_starts_with($currentRoute, 'production')) {
@@ -205,12 +203,12 @@
                             <span class="truncate">Checking / Thaan Stock</span>
                         </a>
 
-                        <!-- Kachi / Pakki / Returns -->
-                        <a href="{{ route('factory.parchis') }}" class="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all {{ str_starts_with($currentRoute, 'factory.parchis') ? 'bg-[#184c35] text-white shadow-md border-2 border-[#c6f16d] font-bold' : 'text-white hover:bg-[#15422e] hover:text-white border-2 border-transparent' }}">
-                            <svg class="w-4 h-4 shrink-0 {{ str_starts_with($currentRoute, 'factory.parchis') ? 'text-[#c6f16d]' : 'text-white' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+                        <!-- Sales Contracts -->
+                        <a href="{{ route('sales.contracts') }}" class="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all {{ str_starts_with($currentRoute, 'sales.contracts') ? 'bg-[#184c35] text-white shadow-md border-2 border-[#c6f16d] font-bold' : 'text-white hover:bg-[#15422e] hover:text-white border-2 border-transparent' }}">
+                            <svg class="w-4 h-4 shrink-0 {{ str_starts_with($currentRoute, 'sales.contracts') ? 'text-[#c6f16d]' : 'text-white' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a2 2 0 01.707.293l4.414 4.414A2 2 0 0120 9.121V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2"/>
                             </svg>
-                            <span class="truncate">Kachi / Pakki / Returns</span>
+                            <span class="truncate">Sales Contracts</span>
                         </a>
 
                         <!-- 6. Production -->

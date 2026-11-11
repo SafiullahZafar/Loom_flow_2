@@ -58,8 +58,8 @@
                 </p>
 
                 <div class="pt-2 flex flex-wrap items-center gap-3">
-                    <a href="{{ route('factory.parchis') }}" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#c6f16d] hover:bg-[#b5e759] text-[#133e2b] font-black text-xs shadow-sm transition-all hover:translate-x-0.5">
-                        <span>Record Pakki Parchi</span>
+                    <a href="{{ route('sales.index') }}" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#c6f16d] hover:bg-[#b5e759] text-[#133e2b] font-black text-xs shadow-sm transition-all hover:translate-x-0.5">
+                        <span>Open Sales &amp; Parchis</span>
                         <span class="text-sm">&nearr;</span>
                     </a>
                     <a href="{{ route('factory.checking') }}" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#194933] hover:bg-[#1a4934] text-emerald-200 font-semibold text-xs border border-[#205c41] transition-all">
@@ -101,7 +101,7 @@
 
                 @if($pendingPakkiCount > 4)
                     <div class="pt-1 text-right">
-                        <a href="{{ route('factory.parchis') }}" class="text-[11px] text-[#c6f16d] font-bold hover:underline">
+                        <a href="{{ route('sales.index') }}" class="text-[11px] text-[#c6f16d] font-bold hover:underline">
                             + {{ $pendingPakkiCount - 4 }} more pending dispatches &nearr;
                         </a>
                     </div>

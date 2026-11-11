@@ -1,12 +1,16 @@
-@extends('layouts.app')
-@section('title', 'Kachi & Pakki Parchi')
-@section('content')
-<div class="max-w-7xl mx-auto space-y-6 pb-12">
+<style>
+    #parchi-workflow section#kachi,
+    #parchi-workflow section#pakki,
+    #parchi-workflow section#returns,
+    #parchi-workflow section#disposition,
+    #parchi-workflow section#own-sale { display: none; }
+</style>
+<div class="max-w-7xl mx-auto space-y-6 pb-12" id="parchi-workflow">
     <header class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
             <span class="text-[11px] font-extrabold uppercase tracking-widest text-[#15803d]">CUSTOMER DISPATCH &amp; WEAVING BILLING</span>
-            <h1 class="text-2xl sm:text-3xl font-black text-[#133e2b] tracking-tight">Dispatch &middot; Kachi / Pakki Parchi &middot; Returns</h1>
-            <p class="text-xs sm:text-sm text-stone-500 mt-0.5">Kachi = sent fabric. Pakki = accepted fabric. Bill is based on Pakki metres only.</p>
+            <h2 class="text-xl sm:text-2xl font-black text-[#133e2b] tracking-tight">Job Work Dispatch &amp; Returns</h2>
+            <p class="text-xs sm:text-sm text-stone-500 mt-0.5">Select an action. Each saved entry updates its linked Thaans, contract, stock, or invoice.</p>
         </div>
     </header>
 
@@ -372,6 +376,52 @@
 
 <script>
 (function(){
+    const parchiDialogs = {
+        kachi: 'salesParchiKachiModal',
+        pakki: 'salesParchiPakkiModal',
+        returns: 'salesParchiReturnModal',
+        disposition: 'salesParchiDispositionModal',
+        'own-sale': 'salesParchiOwnSaleModal',
+    };
+    Object.entries(parchiDialogs).forEach(([sectionId, modalId]) => {
+        const section = document.getElementById(sectionId);
+        if (!section) return;
+        const modal = document.createElement('div');
+        modal.id = modalId;
+        modal.className = 'fixed inset-0 z-[70] hidden items-center justify-center overflow-y-auto bg-zinc-950/60 p-4 backdrop-blur-sm';
+        modal.setAttribute('role', 'dialog');
+        modal.setAttribute('aria-modal', 'true');
+        const panel = document.createElement('div');
+        panel.className = 'my-auto w-full max-w-3xl';
+        const close = document.createElement('button');
+        close.type = 'button';
+        close.className = 'mb-2 ml-auto block rounded-lg bg-white px-3 py-2 text-xs font-bold text-zinc-700';
+        close.textContent = 'Close';
+        close.addEventListener('click', () => closeSalesParchi(modalId));
+        section.classList.remove('card');
+        section.classList.add('rounded-3xl', 'border', 'border-zinc-200', 'bg-white', 'p-5', 'shadow-2xl', 'max-h-[85vh]', 'overflow-y-auto');
+        panel.append(close, section);
+        modal.append(panel);
+        modal.addEventListener('click', (event) => {
+            if (event.target === modal) closeSalesParchi(modalId);
+        });
+        document.body.append(modal);
+    });
+    window.openSalesParchi = (action) => {
+        const modal = document.getElementById(parchiDialogs[action]);
+        if (modal) {
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+    };
+    window.closeSalesParchi = (modalId) => {
+        const modal = document.getElementById(modalId);
+        if (modal) {
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+    };
+
     const order = document.getElementById('kachi-order');
     const labels = [...document.querySelectorAll('.kachi-option')];
     const update = () => {
@@ -404,4 +454,3 @@
     updateRet();
 })();
 </script>
-@endsection
