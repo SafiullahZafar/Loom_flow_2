@@ -176,27 +176,6 @@
                 padding-right: 0.5rem;
             }
 
-            #appSidebar.sidebar-collapsed .sidebar-nav a:hover::after,
-            #appSidebar.sidebar-collapsed .sidebar-nav a:focus-visible::after {
-                content: attr(data-sidebar-label);
-                position: absolute;
-                left: calc(100% + 0.75rem);
-                top: 50%;
-                z-index: 30;
-                transform: translateY(-50%);
-                width: max-content;
-                max-width: 16rem;
-                padding: 0.55rem 0.75rem;
-                border: 1px solid #205c41;
-                border-radius: 0.75rem;
-                background: #0f3323;
-                color: #fff;
-                box-shadow: 0 8px 20px rgb(0 0 0 / 18%);
-                font-size: 0.75rem;
-                font-weight: 700;
-                pointer-events: none;
-            }
-
             #appSidebar.sidebar-collapsed .sidebar-brand-link,
             #appSidebar.sidebar-collapsed .sidebar-logout-button {
                 position: relative;
@@ -337,6 +316,7 @@
 
         <!-- BACKDROP FOR MOBILE SIDEBAR -->
         <div id="sidebarBackdrop" onclick="toggleSidebar()" class="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm hidden lg:hidden transition-opacity"></div>
+        <div id="sidebarTooltip" class="pointer-events-none fixed z-[100] hidden max-w-[16rem] rounded-xl border border-[#205c41] bg-[#0f3323] px-3 py-2 text-xs font-bold text-white shadow-xl" role="tooltip"></div>
 
         <!-- LEFT SIDEBAR: FIXED HEIGHT (lg:sticky lg:top-0 lg:h-screen lg:max-h-screen), SLIGHTLY DARKER GREEN (#0f3323) -->
         <aside id="appSidebar" class="fixed inset-y-0 left-0 z-50 w-64 lg:sticky lg:top-0 lg:h-screen lg:max-h-screen bg-[#0f3323] text-white flex flex-col justify-between transition-all duration-300 ease-in-out -translate-x-full lg:translate-x-0 shrink-0 select-none border-r border-[#1a4d36] shadow-xl">
@@ -659,6 +639,41 @@
             }
         }
 
+        const sidebar = document.getElementById('appSidebar');
+        const sidebarTooltip = document.getElementById('sidebarTooltip');
+        const sidebarNav = document.querySelector('#appSidebar .sidebar-nav');
+
+        function showSidebarTooltip(link) {
+            if (!sidebar || !sidebarTooltip || !sidebarNav || !sidebar.classList.contains('sidebar-collapsed') || !window.matchMedia('(min-width: 1024px)').matches) {
+                return;
+            }
+
+            const label = link.getAttribute('data-sidebar-label');
+            if (!label) {
+                return;
+            }
+
+            sidebarTooltip.textContent = label;
+            sidebarTooltip.classList.remove('hidden');
+
+            const linkRect = link.getBoundingClientRect();
+            const tooltipRect = sidebarTooltip.getBoundingClientRect();
+            const left = Math.min(linkRect.right + 12, window.innerWidth - tooltipRect.width - 8);
+            const top = Math.max(8, Math.min(linkRect.top + linkRect.height / 2 - tooltipRect.height / 2, window.innerHeight - tooltipRect.height - 8));
+
+            sidebarTooltip.style.left = `${Math.max(8, left)}px`;
+            sidebarTooltip.style.top = `${top}px`;
+        }
+
+        if (sidebarNav) {
+            sidebarNav.querySelectorAll('a[data-sidebar-label]').forEach((link) => {
+                link.addEventListener('pointerenter', () => showSidebarTooltip(link));
+                link.addEventListener('pointerleave', () => sidebarTooltip?.classList.add('hidden'));
+                link.addEventListener('focus', () => showSidebarTooltip(link));
+                link.addEventListener('blur', () => sidebarTooltip?.classList.add('hidden'));
+            });
+        }
+
         function toggleDesktopSidebar() {
             const sidebar = document.getElementById('appSidebar');
             const toggle = document.querySelector('.sidebar-collapse-toggle');
@@ -675,6 +690,9 @@
 
             const isCollapsed = sidebar.classList.toggle('sidebar-collapsed');
             localStorage.setItem('loomflow-sidebar-collapsed', isCollapsed ? 'true' : 'false');
+            if (!isCollapsed && sidebarTooltip) {
+                sidebarTooltip.classList.add('hidden');
+            }
 
             if (toggle) {
                 toggle.setAttribute('aria-expanded', isCollapsed ? 'false' : 'true');
