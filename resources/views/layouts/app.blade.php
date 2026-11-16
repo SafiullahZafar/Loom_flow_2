@@ -502,6 +502,7 @@
                         <span>Single operator</span>
                     </div>
                     <p class="text-[10px] text-white/80 mt-0.5">Grey fabric weaving only</p>
+                    </div>
 
                     @auth
                         <div class="sidebar-user-row flex items-center justify-between mt-2.5 pt-2.5 border-t border-[#20583e]">
@@ -522,7 +523,6 @@
                             <a href="{{ route('login') }}" class="block text-center py-1.5 px-3 rounded-lg bg-[#c6f16d] text-[#0f3323] font-black text-xs hover:bg-[#b5e759] transition-all">Sign In</a>
                         </div>
                     @endauth
-                    </div>
                 </div>
             </div>
         </aside>
