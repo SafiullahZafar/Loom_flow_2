@@ -181,8 +181,7 @@
                 position: relative;
             }
 
-            #appSidebar.sidebar-collapsed .sidebar-brand-tooltip,
-            #appSidebar.sidebar-collapsed .sidebar-logout-button::after {
+            #appSidebar.sidebar-collapsed .sidebar-brand-tooltip {
                 position: absolute;
                 left: calc(100% + 0.75rem);
                 top: 50%;
@@ -205,14 +204,8 @@
                 transition: opacity 150ms ease, visibility 150ms ease;
             }
 
-            #appSidebar.sidebar-collapsed .sidebar-logout-button::after {
-                content: attr(data-sidebar-label);
-            }
-
             #appSidebar.sidebar-collapsed .sidebar-brand-link:hover .sidebar-brand-tooltip,
-            #appSidebar.sidebar-collapsed .sidebar-brand-link:focus-visible .sidebar-brand-tooltip,
-            #appSidebar.sidebar-collapsed .sidebar-logout-button:hover::after,
-            #appSidebar.sidebar-collapsed .sidebar-logout-button:focus-visible::after {
+            #appSidebar.sidebar-collapsed .sidebar-brand-link:focus-visible .sidebar-brand-tooltip {
                 opacity: 1;
                 visibility: visible;
             }
@@ -220,11 +213,14 @@
             #appSidebar.sidebar-collapsed .sidebar-operator-panel {
                 display: flex;
                 justify-content: center;
-                padding: 0.75rem 0.25rem;
+                padding: 0.75rem 0.5rem 1rem;
             }
 
             #appSidebar.sidebar-collapsed .sidebar-operator-card {
-                padding: 0.5rem;
+                width: 100%;
+                padding: 0.25rem 0;
+                border: 0;
+                background: transparent;
             }
 
             #appSidebar.sidebar-collapsed .sidebar-user-info {
@@ -232,21 +228,58 @@
             }
 
             #appSidebar.sidebar-collapsed .sidebar-user-row {
+                display: flex;
+                flex-direction: column;
+                width: 100%;
                 justify-content: center;
                 margin-top: 0;
                 padding-top: 0;
                 border-top: 0;
             }
 
+            #appSidebar.sidebar-collapsed .sidebar-user-row form {
+                display: flex;
+                width: 100%;
+                justify-content: center;
+            }
+
             #appSidebar.sidebar-collapsed .sidebar-logout-button {
                 position: relative;
-                width: 2.5rem;
-                height: 2.5rem;
+                display: flex;
+                flex: 0 0 auto;
+                flex-direction: column;
+                width: 3.5rem;
+                min-width: 3.5rem;
+                max-width: 3.5rem;
+                height: 3.25rem;
+                align-items: center;
                 justify-content: center;
-                border: 1px solid #20583e;
+                margin: 0 auto;
+                gap: 0.25rem;
+                padding: 0.25rem;
+                border: 1px solid #c6f16d;
                 border-radius: 0.75rem;
-                background: #0f3323;
-                color: #fff;
+                background: #184c35;
+                color: #c6f16d;
+                opacity: 1;
+                visibility: visible;
+            }
+
+            #appSidebar.sidebar-collapsed .sidebar-logout-icon {
+                display: block;
+                width: 1.125rem;
+                min-width: 1.125rem;
+                height: 1.125rem;
+                color: #c6f16d;
+            }
+
+            #appSidebar.sidebar-collapsed .sidebar-logout-label {
+                display: block;
+                color: #c6f16d;
+                font-size: 0.55rem;
+                font-weight: 800;
+                line-height: 1;
+                white-space: nowrap;
             }
 
             #appSidebar.sidebar-collapsed .sidebar-logout-button:hover,
@@ -256,26 +289,6 @@
                 color: #c6f16d;
             }
 
-            #appSidebar.sidebar-collapsed .sidebar-logout-button:hover::after,
-            #appSidebar.sidebar-collapsed .sidebar-logout-button:focus-visible::after {
-                content: attr(data-sidebar-label);
-                position: absolute;
-                left: calc(100% + 0.75rem);
-                top: 50%;
-                z-index: 30;
-                transform: translateY(-50%);
-                width: max-content;
-                max-width: 16rem;
-                padding: 0.55rem 0.75rem;
-                border: 1px solid #205c41;
-                border-radius: 0.75rem;
-                background: #0f3323;
-                color: #fff;
-                box-shadow: 0 8px 20px rgb(0 0 0 / 18%);
-                font-size: 0.75rem;
-                font-weight: 700;
-                pointer-events: none;
-            }
         }
     </style>
 </head>
@@ -498,9 +511,9 @@
                             </div>
                             <form action="{{ route('logout') }}" method="POST">
                                 @csrf
-                                <button type="submit" class="sidebar-logout-button relative flex items-center gap-2 p-1.5 rounded-lg text-white hover:text-[#c6f16d] hover:bg-[#184c35] transition-colors" title="Sign out" aria-label="Sign out" data-sidebar-label="Sign out · {{ Auth::user()->name }}">
-                                    <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
-                                    <span class="sidebar-user-info">Sign out</span>
+                                <button type="submit" class="sidebar-logout-button relative flex items-center gap-2 p-1.5 rounded-lg text-white hover:text-[#c6f16d] hover:bg-[#184c35] transition-colors" title="Sign out" aria-label="Sign out" data-sidebar-label="Sign out">
+                                    <svg class="sidebar-logout-icon w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+                                    <span class="sidebar-logout-label">Sign out</span>
                                 </button>
                             </form>
                         </div>
@@ -714,7 +727,7 @@
             }
         }
 
-        if (window.matchMedia('(min-width: 1024px)').matches && localStorage.getItem('loomflow-sidebar-collapsed') === 'true') {
+        if (window.matchMedia('(min-width: 1024px)').matches && localStorage.getItem('loomflow-sidebar-collapsed') !== 'false') {
             const sidebar = document.getElementById('appSidebar');
             const toggle = document.querySelector('.sidebar-collapse-toggle');
             const brandLink = document.querySelector('.sidebar-brand-link');
