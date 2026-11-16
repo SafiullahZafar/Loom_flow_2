@@ -30,22 +30,13 @@
         </div>
     </div>
 
-    <!-- HERO PRIORITY BANNER (DARK FOREST GREEN CARD) -->
-    <div class="rounded-3xl bg-[#133e2b] text-white p-6 sm:p-8 shadow-md border border-[#1e563d] relative overflow-hidden">
-        <!-- Subtle background organic curve accent -->
-        <div class="absolute -right-20 -bottom-20 w-80 h-80 rounded-full border border-emerald-500/10 pointer-events-none"></div>
-        <div class="absolute -right-10 -top-10 w-96 h-96 rounded-full border border-emerald-500/10 pointer-events-none"></div>
-
-        <div class="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+    <!-- CUSTOMER ACCEPTANCE PRIORITY -->
+    <section class="overflow-hidden rounded-3xl border border-[#e2e8e0] bg-white shadow-sm">
+        <div class="grid grid-cols-1 lg:grid-cols-12">
             
             <!-- Left Info & CTA -->
-            <div class="lg:col-span-7 space-y-4">
-                <span class="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-[#c6f16d]">
-                    <span class="h-1.5 w-1.5 rounded-full bg-[#c6f16d]"></span>
-                    Next Priority &middot; Customer Acceptance
-                </span>
-                
-                <h2 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-white leading-tight">
+            <div class="p-6 sm:p-8 lg:col-span-7 flex flex-col items-start justify-center">
+                <h2 class="mt-4 text-2xl sm:text-3xl font-extrabold tracking-tight text-[#18231d] leading-tight">
                     @if($pendingPakkiCount > 0)
                         {{ $pendingPakkiCount }} Pakki {{ $pendingPakkiCount == 1 ? 'Parchi needs' : 'Parchis need' }} recording.
                     @else
@@ -53,55 +44,62 @@
                     @endif
                 </h2>
 
-                <p class="text-xs sm:text-sm text-emerald-100/80 max-w-xl leading-relaxed">
+                <p class="mt-3 text-sm text-stone-600 max-w-xl leading-relaxed">
                     Customer fabric has been dispatched. Record accepted metres to calculate the correct weaving bill and close party dispatches.
                 </p>
 
-                <div class="pt-2 flex flex-wrap items-center gap-3">
-                    <a href="{{ route('sales.index') }}" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#c6f16d] hover:bg-[#b5e759] text-[#133e2b] font-black text-xs shadow-sm transition-all hover:translate-x-0.5">
+                <div class="mt-5 flex flex-wrap items-center gap-3">
+                    <a href="{{ route('sales.index') }}" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#133e2b] hover:bg-[#1b4835] text-white font-bold text-xs shadow-sm transition-colors">
                         <span>Open Sales &amp; Parchis</span>
-                        <span class="text-sm">&nearr;</span>
+                        <span class="text-sm" aria-hidden="true">&nearr;</span>
                     </a>
-                    <a href="{{ route('factory.checking') }}" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#194933] hover:bg-[#1a4934] text-emerald-200 font-semibold text-xs border border-[#205c41] transition-all">
+                    <a href="{{ route('factory.checking') }}" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-stone-200 bg-white hover:bg-stone-50 text-stone-700 font-semibold text-xs transition-colors">
                         <span>Check Thaans</span>
                     </a>
                 </div>
             </div>
 
             <!-- Right: Dispatched items awaiting acceptance -->
-            <div class="lg:col-span-5 border-t lg:border-t-0 lg:border-l border-[#205c41] pt-5 lg:pt-0 lg:pl-8 space-y-3">
-                <div class="text-[10px] uppercase font-bold tracking-wider text-emerald-400/80 mb-2">
-                    Recent Dispatches Awaiting Acceptance
+            <div class="border-t border-[#e2e8e0] bg-[#f8faf8] p-5 sm:p-6 lg:col-span-5 lg:border-l lg:border-t-0">
+                <div class="mb-3 flex items-center justify-between gap-3">
+                    <h3 class="text-[11px] font-extrabold uppercase tracking-wider text-stone-600">
+                        Recent Dispatches Awaiting Acceptance
+                    </h3>
+                    @if($pendingPakkiCount > 0)
+                        <span class="shrink-0 rounded-full bg-white px-2.5 py-1 text-[10px] font-bold text-stone-600 ring-1 ring-stone-200">
+                            {{ $pendingPakkiCount }} pending
+                        </span>
+                    @endif
                 </div>
                 
                 @forelse($pendingPakkis as $kachi)
-                    <div class="py-2.5 border-b border-[#205c41]/70 last:border-0 flex items-center justify-between text-xs">
-                        <div>
-                            <div class="font-bold text-white flex items-center gap-2">
-                                <span>{{ $kachi->parchi_no }}</span>
-                                <span class="text-[10px] font-normal text-emerald-300">
+                    <div class="mb-2 last:mb-0 rounded-2xl border border-stone-200 bg-white p-3.5 flex items-center justify-between gap-3 text-xs shadow-sm">
+                        <div class="min-w-0">
+                            <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                                <span class="font-extrabold text-[#18231d]">{{ $kachi->parchi_no }}</span>
+                                <span class="text-[10px] font-medium text-stone-500">
                                     {{ $kachi->order?->customer_name ?? $kachi->order?->order_no ?? 'Customer Dispatch' }}
                                 </span>
                             </div>
-                            <div class="text-[11px] text-emerald-400/70 mt-0.5">
+                            <div class="mt-1 text-[11px] leading-relaxed text-stone-500">
                                 {{ $kachi->thaan_count }} Thaans &middot; {{ $kachi->order?->fabricStock?->quality_name ?? 'Grey Fabric' }}
                             </div>
                         </div>
-                        <div class="text-right">
-                            <span class="font-extrabold text-[#c6f16d] text-sm tabular-nums">
+                        <div class="shrink-0 text-right">
+                            <span class="font-extrabold text-[#18231d] text-sm tabular-nums">
                                 {{ number_format((float) $kachi->dispatched_meters, 0) }} m
                             </span>
                         </div>
                     </div>
                 @empty
-                    <div class="py-3 text-xs text-emerald-300/70 italic">
+                    <div class="rounded-2xl border border-dashed border-stone-300 bg-white px-4 py-5 text-center text-xs text-stone-500">
                         No pending dispatches awaiting Pakki recording.
                     </div>
                 @endforelse
 
                 @if($pendingPakkiCount > 4)
-                    <div class="pt-1 text-right">
-                        <a href="{{ route('sales.index') }}" class="text-[11px] text-[#c6f16d] font-bold hover:underline">
+                    <div class="pt-3 text-right">
+                        <a href="{{ route('sales.index') }}" class="text-[11px] text-[#385747] font-bold hover:text-[#133e2b] hover:underline">
                             + {{ $pendingPakkiCount - 4 }} more pending dispatches &nearr;
                         </a>
                     </div>
@@ -109,7 +107,7 @@
             </div>
 
         </div>
-    </div>
+    </section>
 
     <!-- 3 KEY STAT KPI CARDS ROW -->
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-5">
