@@ -518,7 +518,7 @@
         @if(in_array($page, ['dashboard', 'history'], true))
         <div class="rounded-3xl border border-zinc-200 bg-white shadow-sm overflow-hidden">
 
-            <div class="flex items-center justify-between px-6 py-4 border-b border-zinc-100 bg-zinc-50">
+            <div class="flex flex-wrap items-center justify-between gap-3 px-6 py-4 border-b border-zinc-100 bg-zinc-50">
                 <div class="flex items-center gap-2.5">
                     <span class="flex h-8 w-8 items-center justify-center rounded-xl bg-zinc-900">
                         <svg class="h-4 w-4 text-zinc-100" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -559,34 +559,34 @@
             </div>
 
             <div class="overflow-x-auto">
-                <table class="w-full text-left text-xs">
+                <table class="w-full min-w-[1280px] text-left text-xs">
                     <thead>
                         <tr class="border-b border-zinc-200 text-zinc-500 font-semibold uppercase text-[10px] tracking-wider bg-zinc-50">
-                            <th class="px-4 py-3">Date</th>
-                            <th class="px-4 py-3">Shift</th>
-                            <th class="px-4 py-3">Loom #</th>
-                            <th class="px-4 py-3">Operator</th>
-                            <th class="px-4 py-3">Fabric Variety</th>
-                            <th class="px-4 py-3 text-center font-mono">Counters</th>
-                            <th class="px-4 py-3 text-right bg-zinc-900/5 border-x border-zinc-200 font-black text-zinc-800">Net Produced</th>
-                            <th class="px-4 py-3 text-right">Est. / Short</th>
-                            <th class="px-4 py-3 text-right">Beam Taken</th>
-                            <th class="px-4 py-3 text-right bg-zinc-100/70 border-x border-zinc-200 text-zinc-600">Shift Leakage<br><span class="font-normal normal-case">Consumed − woven</span></th>
-                            <th class="px-4 py-3 text-center">Efficiency</th>
+                            <th class="min-w-[120px] whitespace-nowrap px-4 py-3">Date</th>
+                            <th class="min-w-[80px] whitespace-nowrap px-4 py-3">Shift</th>
+                            <th class="min-w-[90px] whitespace-nowrap px-4 py-3">Loom #</th>
+                            <th class="min-w-[150px] px-4 py-3">Operator</th>
+                            <th class="min-w-[190px] px-4 py-3">Fabric Variety</th>
+                            <th class="min-w-[130px] whitespace-nowrap px-4 py-3 text-center font-mono">Counters</th>
+                            <th class="min-w-[125px] whitespace-nowrap px-4 py-3 text-right bg-zinc-900/5 border-x border-zinc-200 font-black text-zinc-800">Net Produced</th>
+                            <th class="min-w-[125px] whitespace-nowrap px-4 py-3 text-right">Est. / Short</th>
+                            <th class="min-w-[110px] whitespace-nowrap px-4 py-3 text-right">Beam Taken</th>
+                            <th class="min-w-[150px] px-4 py-3 text-right bg-zinc-100/70 border-x border-zinc-200 text-zinc-600">Shift Leakage<br><span class="font-normal normal-case">Consumed − woven</span></th>
+                            <th class="min-w-[100px] whitespace-nowrap px-4 py-3 text-center">Efficiency</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-zinc-100">
                         @forelse($productions as $p)
                             <tr class="hover:bg-zinc-50 transition-colors">
-                                <td class="px-4 py-3 font-mono text-zinc-500">{{ $p->production_date->format('d M, Y') }}</td>
-                                <td class="px-4 py-3">
+                                <td class="whitespace-nowrap px-4 py-3 font-mono text-zinc-500">{{ $p->production_date->format('d M, Y') }}</td>
+                                <td class="whitespace-nowrap px-4 py-3">
                                     <span class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase
                                                  {{ $p->shift === 'Day' ? 'bg-zinc-200 text-zinc-700' : 'bg-zinc-900 text-zinc-50' }}">
                                         {{ $p->shift }}
                                     </span>
                                 </td>
-                                <td class="px-4 py-3">
-                                    <span class="font-mono font-black text-zinc-50 px-2.5 py-1 rounded-lg bg-zinc-900 text-xs">
+                                <td class="whitespace-nowrap px-4 py-3">
+                                    <span class="inline-flex whitespace-nowrap font-mono font-black text-zinc-50 px-2.5 py-1 rounded-lg bg-zinc-900 text-xs">
                                         {{ $p->loom_no }}
                                     </span>
                                 </td>
@@ -642,8 +642,8 @@
 {{-- ============================================================
      MODAL: RECORD LOOM PRODUCTION
 ============================================================ --}}
-<div id="modalRecordProduction" class="fixed inset-0 z-50 hidden bg-zinc-950/60 backdrop-blur-sm overflow-y-auto p-4 sm:p-6">
-    <div class="mx-auto my-8 w-full max-w-2xl overflow-y-auto rounded-3xl border border-zinc-200 bg-white shadow-2xl">
+<div id="modalRecordProduction" class="fixed inset-0 z-50 hidden bg-zinc-950/60 backdrop-blur-sm overflow-y-auto p-3 sm:p-6">
+    <div class="mx-auto my-3 sm:my-6 w-full max-w-5xl overflow-y-auto rounded-3xl border border-zinc-200 bg-white shadow-2xl">
         <div class="sticky top-0 z-10 flex items-center justify-between border-b border-zinc-100 bg-white/95 px-6 py-4 backdrop-blur">
             <div class="flex items-center gap-3">
                 <span class="flex h-10 w-10 items-center justify-center rounded-2xl bg-zinc-900">
@@ -663,9 +663,9 @@
             </button>
         </div>
 
-        <form action="{{ route('production.store') }}" method="POST" class="px-6 py-5 space-y-4">
+        <form action="{{ route('production.store') }}" method="POST" class="px-5 py-5 sm:px-8 space-y-5">
             @csrf
-            <div class="grid grid-cols-3 gap-3">
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-3 sm:gap-5">
                 <div>
                     <label class="block text-xs font-semibold text-zinc-600 mb-1">Production Date *</label>
                     <input type="date" name="production_date" required value="{{ date('Y-m-d') }}"
@@ -690,7 +690,7 @@
                 </div>
             </div>
 
-            <div class="grid grid-cols-2 gap-4">
+            <div class="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-6">
                 <div>
                     <label class="block text-xs font-semibold text-zinc-600 mb-1">Operator / Weaver Name *</label>
                     <input type="text" name="operator_name" required placeholder="e.g. Tariq Mehmood"
@@ -735,7 +735,7 @@
             {{-- Meter counters panel --}}
             <div class="p-4 rounded-2xl bg-zinc-50 border border-zinc-200 space-y-3">
                 <span class="text-xs font-bold uppercase tracking-wider text-zinc-600 block">📊 Meter Counters & Beam Consumption</span>
-                <div class="grid grid-cols-3 gap-3">
+                <div class="grid grid-cols-1 gap-4 sm:grid-cols-3 sm:gap-5">
                     <div>
                         <label class="block text-[11px] font-semibold text-zinc-500 mb-1">Starting Meter *</label>
                         <input type="number" step="0.01" id="inpStartMeter" name="start_meter"
@@ -784,7 +784,7 @@
                 <p id="displayBeamSummary" class="text-[11px] text-zinc-500">Select a sizing beam to see its set length and gate pass totals.</p>
             </div>
 
-            <div class="grid grid-cols-2 gap-4">
+            <div class="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-6">
                 <div>
                     <label class="block text-xs font-semibold text-zinc-600 mb-1">Loom Speed (RPM) *</label>
                     <input type="number" id="inpRpm" name="rpm" required value="350" min="100" max="800"
