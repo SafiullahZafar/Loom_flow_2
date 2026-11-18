@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AccountsController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BagController;
 use App\Http\Controllers\DashboardController;
@@ -54,6 +55,13 @@ Route::middleware('auth')->group(function () {
     Route::post('/factory/own-sale', [FactoryParchiController::class, 'ownSale'])->name('factory.own-sale.store');
 
     Route::post('/yarn-qualities', [YarnQualityController::class, 'store'])->name('yarn-qualities.store');
+
+    // Finance overview across customer, supplier, invoice, receipt, and ledger records.
+    Route::get('/accounts', [AccountsController::class, 'index'])->name('accounts.index');
+    Route::get('/accounts/customers/{customer}', [AccountsController::class, 'showCustomer'])->name('accounts.customers.show');
+    Route::get('/accounts/suppliers/{supplier}', [AccountsController::class, 'showSupplier'])->name('accounts.suppliers.show');
+    Route::post('/accounts/suppliers', [AccountsController::class, 'storeSupplier'])->name('accounts.suppliers.store');
+    Route::post('/accounts/supplier-payments', [AccountsController::class, 'storeSupplierPayment'])->name('accounts.supplier-payment.store');
 
     // Expenses (fixed schedules and variable payments)
     Route::get('/expenses', [ExpenseController::class, 'index'])->name('expenses.index');

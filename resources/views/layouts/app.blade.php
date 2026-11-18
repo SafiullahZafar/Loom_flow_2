@@ -320,6 +320,8 @@
                 $pageTitle = '5. Sales & Slips';
             } elseif (str_starts_with($currentRoute, 'invoices')) {
                 $pageTitle = '7. Invoices & Accounts';
+            } elseif (str_starts_with($currentRoute, 'accounts')) {
+                $pageTitle = 'Accounts Overview';
             } elseif (str_starts_with($currentRoute, 'ledgers')) {
                 $pageTitle = 'Party Ledgers';
             } elseif (str_starts_with($currentRoute, 'expenses')) {
@@ -468,6 +470,13 @@
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/>
                             </svg>
                             <span class="sidebar-link-label truncate">7. Invoices &amp; Accounts</span>
+                        </a>
+
+                        <a href="{{ route('accounts.index') }}" data-sidebar-label="Accounts Overview" class="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all {{ str_starts_with($currentRoute, 'accounts') ? 'bg-[#184c35] text-white shadow-md border-2 border-[#c6f16d] font-bold' : 'text-white hover:bg-[#15422e] hover:text-white border-2 border-transparent' }}">
+                            <svg class="w-4 h-4 shrink-0 {{ str_starts_with($currentRoute, 'accounts') ? 'text-[#c6f16d]' : 'text-white' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h2m4 0h2m-9 5h12a3 3 0 003-3V7a3 3 0 00-3-3H6a3 3 0 00-3 3v10a3 3 0 003 3z"/>
+                            </svg>
+                            <span class="sidebar-link-label truncate">Accounts Overview</span>
                         </a>
 
                         <!-- 8. Expenses -->

@@ -28,7 +28,7 @@ class LoomFlowDemoSeeder extends Seeder
         // Tables with existing data are truncated (operational tables only); users table is preserved.
         $operationalTables = [
             'work_orders', 'parta_records', 'kachi_parchis', 'fabric_stocks',
-            'customers', 'bag_purchases', 'sizing_slips', 'financial_accounts',
+            'customers', 'suppliers', 'bag_purchases', 'sizing_slips', 'financial_accounts',
             'parts', 'ledgers', 'sales_contracts', 'loom_assignments',
             'sizing_beams', 'thaan_rolls', 'pakki_parchis', 'invoices',
             'payment_receipts', 'yarn_movements', 'factory_worker_wages',
@@ -83,6 +83,10 @@ class LoomFlowDemoSeeder extends Seeder
                     'address' => 'Faisalabad, Punjab (fictional demo party)',
                 ]);
             }
+            $put('suppliers', [
+                'name' => 'DEMO - Madina Yarn Suppliers', 'type' => 'yarn_supplier',
+                'opening_payable' => 0, 'status' => 'active',
+            ]);
             $cash = $put('financial_accounts', [
                 'name' => 'DEMO - Factory Cash', 'type' => 'cash',
                 'opening_balance' => 150000, 'is_active' => true,

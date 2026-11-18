@@ -9,6 +9,7 @@ use App\Models\Expense;
 use App\Models\FinancialAccount;
 use App\Models\SalesContract;
 use App\Models\SizingSlip;
+use App\Models\Supplier;
 use App\Models\WorkOrder;
 use App\Models\YarnMovement;
 use App\Models\YarnQuality;
@@ -176,6 +177,15 @@ class BagController extends Controller
         $purchase = DB::transaction(function () use ($validated, $totalAmount, $ledgerPostingService): BagPurchase {
             $account = FinancialAccount::whereKey($validated['financial_account_id'])->where('is_active', true)->lockForUpdate()->firstOrFail();
             unset($validated['financial_account_id']);
+            $supplierName = trim($validated['supplier_name']);
+            $supplier = Supplier::query()
+                ->where('type', 'yarn_supplier')
+                ->whereRaw('LOWER(name) = ?', [mb_strtolower($supplierName)])
+                ->first();
+            if (! $supplier) {
+                $supplier = Supplier::query()->create(['name' => $supplierName, 'type' => 'yarn_supplier']);
+            }
+            $validated['supplier_name'] = $supplier->name;
             $purchase = BagPurchase::create([...$validated, 'total_amount' => $totalAmount]);
 
             foreach ([
