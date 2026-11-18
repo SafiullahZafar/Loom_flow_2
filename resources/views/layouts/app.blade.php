@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>@yield('title', 'LoomFlow') - Factory Workspace</title>
+    <title>@yield('title', 'LoomFlow') - LoomFlow</title>
     
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -181,35 +181,6 @@
                 position: relative;
             }
 
-            #appSidebar.sidebar-collapsed .sidebar-brand-tooltip {
-                position: absolute;
-                left: calc(100% + 0.75rem);
-                top: 50%;
-                z-index: 40;
-                transform: translateY(-50%);
-                width: max-content;
-                max-width: 16rem;
-                padding: 0.55rem 0.75rem;
-                border: 1px solid #205c41;
-                border-radius: 0.75rem;
-                background: #0f3323;
-                color: #fff;
-                box-shadow: 0 8px 20px rgb(0 0 0 / 18%);
-                font-size: 0.75rem;
-                font-weight: 700;
-                white-space: nowrap;
-                pointer-events: none;
-                opacity: 0;
-                visibility: hidden;
-                transition: opacity 150ms ease, visibility 150ms ease;
-            }
-
-            #appSidebar.sidebar-collapsed .sidebar-brand-link:hover .sidebar-brand-tooltip,
-            #appSidebar.sidebar-collapsed .sidebar-brand-link:focus-visible .sidebar-brand-tooltip {
-                opacity: 1;
-                visibility: visible;
-            }
-
             #appSidebar.sidebar-collapsed .sidebar-operator-panel {
                 display: flex;
                 justify-content: center;
@@ -347,16 +318,14 @@
                         </span>
                     </span>
                     <div class="sidebar-brand-copy">
-                        <div class="text-white font-black text-lg tracking-tight leading-none">loomflow.</div>
-                        <span class="block text-[9px] uppercase tracking-widest font-extrabold text-[#c6f16d] mt-1">FACTORY WORKSPACE</span>
+                        <div class="text-white font-black text-lg tracking-tight leading-none">loomflow</div>
                     </div>
-                    <span class="sidebar-brand-tooltip">Expand sidebar</span>
                 </a>
                 <button type="button" onclick="toggleSidebar()" class="lg:hidden p-1.5 rounded-lg text-white hover:bg-[#1a4d36]">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                 </button>
-                <button type="button" onclick="toggleDesktopSidebar()" class="sidebar-collapse-toggle hidden lg:flex items-center justify-center rounded-lg text-white hover:bg-[#1a4d36] transition-colors" aria-label="Collapse sidebar" aria-expanded="true" title="Collapse sidebar" data-sidebar-label="Collapse sidebar">
-                    <svg class="sidebar-toggle-icon w-4 h-4 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+                <button type="button" onclick="toggleDesktopSidebar(event)" class="sidebar-collapse-toggle hidden lg:flex h-8 w-8 items-center justify-center rounded-lg text-white transition-colors hover:bg-[#1a4d36]" aria-label="Collapse sidebar" aria-expanded="true" title="Collapse sidebar" data-sidebar-label="Collapse sidebar">
+                    <svg class="sidebar-toggle-icon h-4 w-4 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
                 </button>
             </div>
 
@@ -680,7 +649,7 @@
             });
         }
 
-        function toggleDesktopSidebar() {
+        function toggleDesktopSidebar(event) {
             const sidebar = document.getElementById('appSidebar');
             const toggle = document.querySelector('.sidebar-collapse-toggle');
             const brandLink = document.querySelector('.sidebar-brand-link');
@@ -714,10 +683,6 @@
             if (icon) {
                 icon.classList.toggle('rotate-180', isCollapsed);
             }
-
-            if (brandLink) {
-                brandLink.setAttribute('aria-label', isCollapsed ? 'Expand sidebar' : 'Go to dashboard');
-            }
         }
 
         if (window.matchMedia('(min-width: 1024px)').matches && localStorage.getItem('loomflow-sidebar-collapsed') !== 'false') {
@@ -730,19 +695,26 @@
                 sidebar.classList.add('sidebar-collapsed');
             }
 
+            if (brandLink) {
+                brandLink.setAttribute('aria-label', 'Expand sidebar');
+            }
             if (toggle) {
                 toggle.setAttribute('aria-expanded', 'false');
                 toggle.setAttribute('aria-label', 'Expand sidebar');
                 toggle.setAttribute('title', 'Expand sidebar');
                 toggle.setAttribute('data-sidebar-label', 'Expand sidebar');
             }
-
             if (icon) {
                 icon.classList.add('rotate-180');
             }
-
-            if (brandLink) {
-                brandLink.setAttribute('aria-label', 'Expand sidebar');
+        } else if (window.matchMedia('(min-width: 1024px)').matches) {
+            const toggle = document.querySelector('.sidebar-collapse-toggle');
+            document.querySelector('.sidebar-brand-link')?.setAttribute('aria-label', 'Go to dashboard');
+            if (toggle) {
+                toggle.setAttribute('aria-expanded', 'true');
+                toggle.setAttribute('aria-label', 'Collapse sidebar');
+                toggle.setAttribute('title', 'Collapse sidebar');
+                toggle.setAttribute('data-sidebar-label', 'Collapse sidebar');
             }
         }
 
