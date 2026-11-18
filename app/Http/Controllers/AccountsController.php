@@ -108,10 +108,14 @@ class AccountsController extends Controller
                         $legacyQuery->whereNull('customer_id')->where('party_name', $customer->name);
                     });
             })
-            ->latest('transaction_date')
-            ->latest('id')
-            ->limit(50)
+            ->orderBy('transaction_date')
+            ->orderBy('id')
             ->get();
+        $runningBalance = 0.0;
+        $ledgerEntries->each(function (Ledger $entry) use (&$runningBalance): void {
+            $runningBalance += (float) $entry->debit - (float) $entry->credit;
+            $entry->setAttribute('running_balance', round($runningBalance, 2));
+        });
         $accountBalance = (float) Ledger::query()
             ->where('party_type', 'fabric_buyer')
             ->where(function ($query) use ($customer): void {
@@ -150,6 +154,7 @@ class AccountsController extends Controller
             'ledgerEntries' => $ledgerEntries,
             'invoices' => $invoices,
             'receipts' => $receipts,
+            'activeFinancialAccounts' => FinancialAccount::query()->where('is_active', true)->orderBy('name')->get(),
         ]);
     }
 
@@ -158,10 +163,14 @@ class AccountsController extends Controller
         $ledgerEntries = Ledger::query()
             ->where('party_type', $supplier->type)
             ->where('party_name', $supplier->name)
-            ->latest('transaction_date')
-            ->latest('id')
-            ->limit(50)
+            ->orderBy('transaction_date')
+            ->orderBy('id')
             ->get();
+        $runningBalance = 0.0;
+        $ledgerEntries->each(function (Ledger $entry) use (&$runningBalance): void {
+            $runningBalance += (float) $entry->credit - (float) $entry->debit;
+            $entry->setAttribute('running_balance', round($runningBalance, 2));
+        });
         $accountBalance = (float) Ledger::query()
             ->where('party_type', $supplier->type)
             ->where('party_name', $supplier->name)
@@ -182,6 +191,7 @@ class AccountsController extends Controller
                 ->latest('id')
                 ->limit(30)
                 ->get(),
+            'activeFinancialAccounts' => FinancialAccount::query()->where('is_active', true)->orderBy('name')->get(),
         ]);
     }
 
@@ -295,6 +305,7 @@ class AccountsController extends Controller
             ]);
         });
 
-        return redirect()->route('accounts.index')->with('success', 'Supplier payment recorded and posted to the party and cash/bank ledgers.');
+        return redirect()->route('accounts.suppliers.show', Supplier::findOrFail($validated['supplier_id']))
+            ->with('success', 'Supplier payment recorded and posted to the party and cash/bank ledgers.');
     }
 }

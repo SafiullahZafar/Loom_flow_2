@@ -251,6 +251,7 @@ class InvoiceController extends Controller
             'allocations.*.invoice_id' => 'required_if:allocation_mode,manual|integer|distinct|exists:invoices,id',
             'allocations.*.amount' => 'required_if:allocation_mode,manual|numeric|min:0|max:999999999999',
             'notes' => 'nullable|string|max:2000',
+            'return_to_account' => 'nullable|boolean',
         ]);
 
         DB::transaction(function () use ($validated, $ledgerPostingService): void {
@@ -337,7 +338,11 @@ class InvoiceController extends Controller
             ]);
         });
 
-        return redirect()->route('invoices.payments')->with('success', 'Payment received and posted to the selected account. It was allocated to invoices; any excess remains as customer credit.');
+        $redirect = ($validated['return_to_account'] ?? false)
+            ? redirect()->route('accounts.customers.show', Customer::findOrFail($validated['customer_id']))
+            : redirect()->route('invoices.payments');
+
+        return $redirect->with('success', 'Payment received and posted to the selected account. It was allocated to invoices; any excess remains as customer credit.');
     }
 
     public function storeAccount(Request $request, LedgerPostingService $ledgerPostingService): RedirectResponse
