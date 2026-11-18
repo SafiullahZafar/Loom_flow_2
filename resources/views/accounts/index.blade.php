@@ -21,25 +21,33 @@
     </header>
 
     <section class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="Account summaries">
-        <article class="rounded-2xl border border-emerald-200 border-l-4 border-l-emerald-500 bg-emerald-50/70 p-5 shadow-sm">
-            <div class="text-[11px] font-extrabold uppercase tracking-wider text-emerald-800">Customer receivables</div>
-            <div class="mt-2 text-2xl font-black tabular-nums text-emerald-950">Rs. {{ number_format($receivables, 2) }}</div>
-            <p class="mt-1 text-xs text-emerald-800/75">Outstanding customer balances</p>
+        <article class="group rounded-2xl border border-emerald-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+            <div class="flex items-start justify-between gap-3">
+                <div><div class="text-[10px] font-extrabold uppercase tracking-[0.16em] text-emerald-800">Customer receivables</div><div class="mt-3 text-2xl font-black tabular-nums tracking-tight text-emerald-950">Rs. {{ number_format($receivables, 2) }}</div></div>
+                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-800" aria-hidden="true"><svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M16 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2m12-13a4 4 0 1 1-8 0 4 4 0 0 1 8 0Zm2 5a4 4 0 0 1 4 4v4"/></svg></div>
+            </div>
+            <p class="mt-3 border-t border-emerald-100 pt-3 text-xs font-medium text-zinc-500">Outstanding customer balances</p>
         </article>
-        <article class="rounded-2xl border border-amber-200 border-l-4 border-l-amber-500 bg-amber-50/70 p-5 shadow-sm">
-            <div class="text-[11px] font-extrabold uppercase tracking-wider text-amber-800">Supplier payables</div>
-            <div class="mt-2 text-2xl font-black tabular-nums text-amber-950">Rs. {{ number_format($payables, 2) }}</div>
-            <p class="mt-1 text-xs text-amber-800/75">Outstanding supplier and mill balances</p>
+        <article class="group rounded-2xl border border-amber-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+            <div class="flex items-start justify-between gap-3">
+                <div><div class="text-[10px] font-extrabold uppercase tracking-[0.16em] text-amber-800">Supplier payables</div><div class="mt-3 text-2xl font-black tabular-nums tracking-tight text-amber-950">Rs. {{ number_format($payables, 2) }}</div></div>
+                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-800" aria-hidden="true"><svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M3 21h18M5 21V7l8-4v18m6 0V11l-6-4M9 9v.01M9 12v.01M9 15v.01M9 18v.01m8-4v.01m0 3v.01"/></svg></div>
+            </div>
+            <p class="mt-3 border-t border-amber-100 pt-3 text-xs font-medium text-zinc-500">Outstanding supplier and mill balances</p>
         </article>
-        <article class="rounded-2xl border border-sky-200 border-l-4 border-l-sky-500 bg-sky-50/70 p-5 shadow-sm">
-            <div class="text-[11px] font-extrabold uppercase tracking-wider text-sky-800">Open invoices</div>
-            <div class="mt-2 text-2xl font-black tabular-nums text-sky-950">Rs. {{ number_format($openInvoiceBalance, 2) }}</div>
-            <p class="mt-1 text-xs text-sky-800/75">{{ $openInvoiceCount }} invoice{{ $openInvoiceCount === 1 ? '' : 's' }} with a balance due</p>
+        <article class="group rounded-2xl border border-sky-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+            <div class="flex items-start justify-between gap-3">
+                <div><div class="text-[10px] font-extrabold uppercase tracking-[0.16em] text-sky-800">Open invoices</div><div class="mt-3 text-2xl font-black tabular-nums tracking-tight text-sky-950">Rs. {{ number_format($openInvoiceBalance, 2) }}</div></div>
+                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-100 text-sky-800" aria-hidden="true"><svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M7 3h7l5 5v13H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Zm7 0v5h5M9 13h6m-6 4h6"/></svg></div>
+            </div>
+            <p class="mt-3 border-t border-sky-100 pt-3 text-xs font-medium text-zinc-500">{{ $openInvoiceCount }} invoice{{ $openInvoiceCount === 1 ? '' : 's' }} with a balance due</p>
         </article>
-        <article class="rounded-2xl border border-violet-200 border-l-4 border-l-violet-500 bg-violet-50/70 p-5 shadow-sm">
-            <div class="text-[11px] font-extrabold uppercase tracking-wider text-violet-800">Received this month</div>
-            <div class="mt-2 text-2xl font-black tabular-nums text-violet-950">Rs. {{ number_format($monthReceipts, 2) }}</div>
-            <p class="mt-1 text-xs text-violet-800/75">Customer payments recorded this month</p>
+        <article class="group rounded-2xl border border-violet-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+            <div class="flex items-start justify-between gap-3">
+                <div><div class="text-[10px] font-extrabold uppercase tracking-[0.16em] text-violet-800">Received this month</div><div class="mt-3 text-2xl font-black tabular-nums tracking-tight text-violet-950">Rs. {{ number_format($monthReceipts, 2) }}</div></div>
+                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-violet-800" aria-hidden="true"><svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 3v12m0 0 4-4m-4 4-4-4m-4 8h16"/></svg></div>
+            </div>
+            <p class="mt-3 border-t border-violet-100 pt-3 text-xs font-medium text-zinc-500">Customer payments recorded this month</p>
         </article>
     </section>
 
