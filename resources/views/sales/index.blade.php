@@ -321,15 +321,16 @@
                 <label class="text-xs font-semibold text-zinc-600">Our contract number
                     <input name="contract_no" value="{{ old('contract_no') }}" required maxlength="100" class="mt-1 w-full rounded-xl border-zinc-300 text-sm" placeholder="e.g. C-2026-001">
                 </label>
-                <label class="text-xs font-semibold text-zinc-600">Customer
-                    <select name="customer_id" required class="mt-1 w-full rounded-xl border-zinc-300 text-sm">
+                <div class="text-xs font-semibold text-zinc-600">
+                    <div class="mb-1 flex items-center justify-between gap-2"><label for="contractCustomerSelect">Customer</label><button type="button" id="openContractCustomerDialog" class="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-[10px] font-extrabold text-emerald-900 transition hover:bg-emerald-100"><span aria-hidden="true">+</span> Add customer</button></div>
+                    <select id="contractCustomerSelect" name="customer_id" required class="mt-1 w-full rounded-xl border-zinc-300 text-sm">
                         <option value="">Choose customer</option>
                         @foreach($customers as $customer)
-                            <option value="{{ $customer->id }}" data-phone="{{ $customer->phone }}" @selected(old('customer_id') == $customer->id)>{{ $customer->name }}</option>
+                            <option value="{{ $customer->id }}" data-phone="{{ $customer->phone }}" @selected(old('customer_id', request('selected_customer_id')) == $customer->id)>{{ $customer->name }}</option>
                         @endforeach
                     </select>
                     <span id="contractBuyerSummary" class="mt-1 block text-[10px] text-zinc-500">Buyer name and phone are taken from the selected customer.</span>
-                </label>
+                </div>
                 <label class="text-xs font-semibold text-zinc-600">Buyer code
                     <input name="buyer_code" value="{{ old('buyer_code') }}" maxlength="40" class="mt-1 w-full rounded-xl border-zinc-300 text-sm">
                 </label>
@@ -499,6 +500,94 @@
                     <ul class="mt-1 list-inside list-disc">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul>
                 </div>
             @endif
+            <dialog id="createContractCustomerDialog" class="w-[calc(100%-2rem)] max-w-2xl rounded-3xl border border-zinc-200 bg-white p-0 shadow-2xl backdrop:bg-zinc-950/50">
+                <form id="createContractCustomerForm" method="POST" action="{{ route('invoices.customer.store') }}" class="overflow-hidden rounded-3xl">
+                    @csrf
+                    <div class="flex items-start justify-between gap-4 border-b border-zinc-100 bg-gradient-to-r from-emerald-50 via-white to-white px-5 py-5 sm:px-7">
+                        <div class="flex items-start gap-3">
+                            <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-100 text-[#133e2b]" aria-hidden="true"><svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M16 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2m12-13a4 4 0 1 1-8 0 4 4 0 0 1 8 0Zm2 5a4 4 0 0 1 4 4v4"/></svg></span>
+                            <div><span class="text-[10px] font-extrabold uppercase tracking-[0.16em] text-emerald-800">Customer account</span><h2 class="mt-1 text-lg font-black tracking-tight text-zinc-900 sm:text-xl">Add customer to this contract</h2><p class="mt-1 text-xs leading-5 text-zinc-500">Create the customer and their ledger account, then attach them to this contract.</p></div>
+                        </div>
+                        <button type="button" id="closeContractCustomerDialog" class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-zinc-200 bg-white text-lg font-medium text-zinc-500 transition hover:border-zinc-300 hover:bg-zinc-50 hover:text-zinc-900" aria-label="Close dialog">&times;</button>
+                    </div>
+                    <div class="space-y-5 px-5 py-5 sm:px-7 sm:py-6">
+                        <div id="contractCustomerCreateErrors" class="hidden rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs leading-5 text-red-800" role="alert"></div>
+                        <section class="rounded-2xl border border-zinc-200 bg-white p-4 sm:p-5">
+                            <div class="mb-4"><h3 class="text-xs font-extrabold uppercase tracking-wider text-zinc-800">Customer details</h3><p class="mt-1 text-[11px] text-zinc-500">Enter the buyer information used by this contract.</p></div>
+                            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                <label class="text-xs font-bold text-zinc-600 sm:col-span-2">Customer name <span class="text-rose-600">*</span><input name="name" required maxlength="150" placeholder="Customer or business name" class="mt-1.5 w-full rounded-xl border border-zinc-300 bg-white px-3.5 py-3 text-sm text-zinc-900 shadow-sm outline-none transition placeholder:text-zinc-400 focus:border-[#133e2b] focus:ring-2 focus:ring-emerald-100"></label>
+                                <label class="text-xs font-bold text-zinc-600">Phone<input name="phone" maxlength="50" placeholder="Phone number" class="mt-1.5 w-full rounded-xl border border-zinc-300 bg-white px-3.5 py-3 text-sm text-zinc-900 shadow-sm outline-none transition placeholder:text-zinc-400 focus:border-[#133e2b] focus:ring-2 focus:ring-emerald-100"></label>
+                                <label class="text-xs font-bold text-zinc-600">Email<input name="email" type="email" maxlength="150" placeholder="name@example.com" class="mt-1.5 w-full rounded-xl border border-zinc-300 bg-white px-3.5 py-3 text-sm text-zinc-900 shadow-sm outline-none transition placeholder:text-zinc-400 focus:border-[#133e2b] focus:ring-2 focus:ring-emerald-100"></label>
+                                <label class="text-xs font-bold text-zinc-600 sm:col-span-2">Address<input name="address" maxlength="1000" placeholder="Business or delivery address" class="mt-1.5 w-full rounded-xl border border-zinc-300 bg-white px-3.5 py-3 text-sm text-zinc-900 shadow-sm outline-none transition placeholder:text-zinc-400 focus:border-[#133e2b] focus:ring-2 focus:ring-emerald-100"></label>
+                            </div>
+                        </section>
+                        <section class="grid grid-cols-1 items-center gap-4 rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4 sm:grid-cols-[1fr_220px] sm:p-5">
+                            <div><h3 class="text-xs font-extrabold uppercase tracking-wider text-emerald-950">Opening account balance</h3><p class="mt-1 text-[11px] leading-5 text-emerald-900/75">Optional. An amount here creates the customer’s opening receivable entry in their account ledger.</p></div>
+                            <label class="text-xs font-bold text-emerald-950">Opening balance (PKR)<input name="opening_balance" type="number" min="0" step="0.01" value="0" class="mt-1.5 w-full rounded-xl border border-emerald-200 bg-white px-3.5 py-3 text-sm font-bold tabular-nums text-zinc-900 shadow-sm outline-none transition focus:border-[#133e2b] focus:ring-2 focus:ring-emerald-100"></label>
+                        </section>
+                    </div>
+                    <div class="flex flex-col-reverse gap-2 border-t border-zinc-100 bg-zinc-50/80 px-5 py-4 sm:flex-row sm:justify-end sm:px-7">
+                        <button type="button" id="cancelContractCustomerDialog" class="rounded-xl border border-zinc-300 bg-white px-4 py-2.5 text-xs font-bold text-zinc-700 transition hover:bg-zinc-100">Cancel</button>
+                        <button type="submit" class="inline-flex items-center justify-center gap-2 rounded-xl bg-[#133e2b] px-5 py-2.5 text-xs font-extrabold text-white shadow-sm transition hover:bg-[#0f3323] disabled:cursor-wait disabled:opacity-70"><svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M12 5v14m-7-7h14"/></svg><span>Create and select customer</span></button>
+                    </div>
+                </form>
+            </dialog>
+            <script>
+                (() => {
+                    const dialog = document.getElementById('createContractCustomerDialog');
+                    const openButton = document.getElementById('openContractCustomerDialog');
+                    const closeButton = document.getElementById('closeContractCustomerDialog');
+                    const cancelButton = document.getElementById('cancelContractCustomerDialog');
+                    const createForm = document.getElementById('createContractCustomerForm');
+                    const errors = document.getElementById('contractCustomerCreateErrors');
+                    const customerSelect = document.getElementById('contractCustomerSelect');
+                    const submitButton = createForm.querySelector('[type="submit"]');
+                    const submitButtonLabel = submitButton.querySelector('span');
+
+                    openButton.addEventListener('click', () => dialog.showModal());
+                    [closeButton, cancelButton].forEach((button) => button.addEventListener('click', () => dialog.close()));
+                    dialog.addEventListener('click', (event) => {
+                        if (event.target === dialog) {
+                            dialog.close();
+                        }
+                    });
+                    createForm.addEventListener('submit', async (event) => {
+                        event.preventDefault();
+                        errors.classList.add('hidden');
+                        errors.textContent = '';
+                        submitButton.disabled = true;
+                        submitButtonLabel.textContent = 'Creating account…';
+
+                        try {
+                            const response = await fetch(createForm.action, {
+                                method: 'POST',
+                                headers: {'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest'},
+                                body: new FormData(createForm),
+                            });
+                            const result = await response.json();
+                            if (!response.ok) {
+                                throw new Error(Object.values(result.errors ?? {}).flat().join(' ')
+                                    || result.message
+                                    || 'Unable to create this customer account.');
+                            }
+
+                            const customer = result.customer;
+                            const option = new Option(customer.name, customer.id, true, true);
+                            option.dataset.phone = customer.phone ?? '';
+                            customerSelect.add(option);
+                            customerSelect.dispatchEvent(new Event('change', {bubbles: true}));
+                            createForm.reset();
+                            dialog.close();
+                        } catch (error) {
+                            errors.textContent = error.message;
+                            errors.classList.remove('hidden');
+                        } finally {
+                            submitButton.disabled = false;
+                        submitButtonLabel.textContent = 'Create and select customer';
+                        }
+                    });
+                })();
+            </script>
         </section>
         @endif
         <script>

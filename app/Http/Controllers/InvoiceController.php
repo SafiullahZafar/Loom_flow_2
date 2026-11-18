@@ -14,6 +14,7 @@ use App\Models\WorkOrder;
 use App\Services\LedgerPostingService;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -97,7 +98,7 @@ class InvoiceController extends Controller
         return Invoice::with(['customer', 'contract', 'sale', 'items'])->withSum('allocations', 'amount');
     }
 
-    public function storeCustomer(Request $request, LedgerPostingService $ledgerPostingService): RedirectResponse
+    public function storeCustomer(Request $request, LedgerPostingService $ledgerPostingService): RedirectResponse|JsonResponse
     {
         $validated = $request->validate([
             'name' => 'required|string|max:150',
@@ -112,12 +113,20 @@ class InvoiceController extends Controller
         }
         $validated['phone'] = filled($validated['phone'] ?? null) ? trim($validated['phone']) : null;
         $validated['opening_balance'] = round((float) ($validated['opening_balance'] ?? 0), 2);
-        $customer = Customer::create($validated);
-        if ((float) $customer->opening_balance > 0) {
-            $ledgerPostingService->post('customer_opening_balance', $customer->id, [
-                ['role' => 'customer', 'customer_id' => $customer->id, 'party_name' => $customer->name, 'party_type' => 'fabric_buyer', 'transaction_date' => $customer->created_at->toDateString(), 'voucher_no' => 'OPEN-CUS-'.$customer->id, 'description' => 'Customer opening receivable balance', 'debit' => (float) $customer->opening_balance, 'credit' => 0, 'notes' => null],
-                ['role' => 'equity', 'party_name' => 'Opening Balance Equity', 'party_type' => 'equity', 'transaction_date' => $customer->created_at->toDateString(), 'voucher_no' => 'OPEN-CUS-'.$customer->id, 'description' => 'Opening customer balance', 'debit' => 0, 'credit' => (float) $customer->opening_balance, 'notes' => null],
-            ]);
+        $customer = DB::transaction(function () use ($validated, $ledgerPostingService): Customer {
+            $customer = Customer::create($validated);
+            if ((float) $customer->opening_balance > 0) {
+                $ledgerPostingService->post('customer_opening_balance', $customer->id, [
+                    ['role' => 'customer', 'customer_id' => $customer->id, 'party_name' => $customer->name, 'party_type' => 'fabric_buyer', 'transaction_date' => $customer->created_at->toDateString(), 'voucher_no' => 'OPEN-CUS-'.$customer->id, 'description' => 'Customer opening receivable balance', 'debit' => (float) $customer->opening_balance, 'credit' => 0, 'notes' => null],
+                    ['role' => 'equity', 'party_name' => 'Opening Balance Equity', 'party_type' => 'equity', 'transaction_date' => $customer->created_at->toDateString(), 'voucher_no' => 'OPEN-CUS-'.$customer->id, 'description' => 'Opening customer balance', 'debit' => 0, 'credit' => (float) $customer->opening_balance, 'notes' => null],
+                ]);
+            }
+
+            return $customer;
+        });
+
+        if ($request->expectsJson()) {
+            return response()->json(['customer' => $customer], 201);
         }
 
         return back()->with('success', 'Customer saved. They can now be selected on invoices and payment receipts.');
