@@ -540,48 +540,31 @@
         <div class="flex-1 flex flex-col min-w-0 min-h-screen">
             
             <!-- TOP BAR HEADER -->
-            <header class="sticky top-0 z-30 bg-[#f4f6f4]/95 backdrop-blur-md border-b border-[#e2e8e0] px-4 sm:px-8 py-3.5">
-                <div class="flex items-center justify-between gap-4">
-                    
-                    <!-- Left: Mobile toggle & Breadcrumb -->
-                    <div class="flex items-center gap-3">
-                        <button type="button" onclick="toggleSidebar()" class="lg:hidden p-2 rounded-xl bg-white border border-[#e2e8e0] text-[#133e2b] hover:bg-stone-50 transition-colors">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+            <header class="sticky top-0 z-30 border-b border-[#e2e8e0] bg-white px-4 py-3.5 shadow-sm sm:px-8">
+                <div class="flex min-h-11 items-center justify-between gap-4">
+                    <div class="flex min-w-0 items-center gap-3 sm:gap-4">
+                        <button type="button" onclick="toggleSidebar()" class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#e2e8e0] bg-white text-[#133e2b] transition hover:bg-emerald-50 lg:hidden" aria-label="Open navigation menu">
+                            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
                         </button>
-                        
-                        <div class="flex items-center gap-2 text-xs">
-                            <span class="text-stone-500 font-medium">Workspace</span>
-                            <span class="text-stone-300">/</span>
-                            <span class="font-bold text-[#133e2b]">{{ $pageTitle }}</span>
+                        <div class="min-w-0">
+                            <div class="text-[10px] font-extrabold uppercase tracking-[0.16em] text-stone-400">LoomFlow workspace</div>
+                            <div class="mt-0.5 truncate text-base font-black tracking-tight text-[#133e2b] sm:text-lg">{{ $pageTitle }}</div>
                         </div>
                     </div>
 
-                    <!-- Right: Search, Concept Pill, Avatar -->
-                    <div class="flex items-center gap-3">
-                        
-                        <!-- Search Bar -->
-                        <div class="relative hidden sm:block">
-                            <svg class="w-3.5 h-3.5 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-                            </svg>
-                            <input type="text" placeholder="Search LoomFlow..." class="pl-8 pr-3 py-1.5 text-xs bg-white border border-[#e2e8e0] rounded-full focus:outline-none focus:ring-2 focus:ring-[#133e2b]/15 focus:border-[#133e2b] text-[#131e18] placeholder-stone-400 w-48 md:w-60 shadow-2xs transition-all">
-                        </div>
-
-                        <!-- Mode Pill -->
-                        <span class="hidden md:inline-flex px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-stone-600 bg-white border border-[#e2e8e0] rounded-full shadow-2xs">
-                            Interactive Concept
-                        </span>
-
-                        <!-- Operator Avatar -->
-                        @auth
-                            <div class="w-8 h-8 rounded-full bg-[#c6f16d] text-[#133e2b] font-black text-xs flex items-center justify-center shadow-2xs border border-[#b4e857]" title="{{ Auth::user()->name }}">
+                    @auth
+                        <div class="flex shrink-0 items-center gap-3 rounded-2xl border border-[#e2e8e0] bg-[#f7f9f7] py-1.5 pl-2 pr-3 sm:pl-2.5 sm:pr-4" title="Signed in as {{ Auth::user()->name }}">
+                            <div class="flex h-9 w-9 items-center justify-center rounded-xl border border-[#b4e857] bg-[#c6f16d] text-xs font-black text-[#133e2b] shadow-sm">
                                 {{ strtoupper(substr(Auth::user()->name, 0, 2)) }}
                             </div>
-                        @else
-                            <a href="{{ route('login') }}" class="px-3 py-1.5 rounded-full bg-[#133e2b] text-white text-xs font-bold">Login</a>
-                        @endauth
-                    </div>
-
+                            <div class="hidden min-w-0 sm:block">
+                                <div class="text-[9px] font-bold uppercase tracking-wider text-stone-400">Signed in</div>
+                                <div class="max-w-40 truncate text-xs font-extrabold text-stone-800">{{ Auth::user()->name }}</div>
+                            </div>
+                        </div>
+                    @else
+                        <a href="{{ route('login') }}" class="inline-flex items-center rounded-xl bg-[#133e2b] px-4 py-2.5 text-xs font-extrabold text-white shadow-sm transition hover:bg-[#0f3323]">Login</a>
+                    @endauth
                 </div>
             </header>
 
