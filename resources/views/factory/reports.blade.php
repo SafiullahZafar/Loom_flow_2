@@ -1,7 +1,169 @@
 @extends('layouts.app')
 @section('title', 'Factory Reports and Mazdoori')
 @section('content')
-<div class="max-w-7xl mx-auto space-y-6 pb-12">
+<style>
+    .factory-aside .nav-link.is-active {
+        background: #133e2b;
+        color: #ffffff;
+        box-shadow: 0 1px 2px rgba(19, 62, 43, 0.15);
+    }
+    .factory-aside .nav-link.is-active:hover {
+        background: #133e2b;
+        color: #ffffff;
+    }
+    .factory-aside .nav-link.is-active .nav-chip {
+        background: #0b261a;
+    }
+    .factory-aside .nav-link.is-active .nav-chip svg {
+        color: #c6f16d;
+    }
+    .factory-aside .nav-link.is-active .nav-dot {
+        display: inline-block;
+    }
+</style>
+
+<div class="grid grid-cols-1 lg:grid-cols-[260px_minmax(0,1fr)] gap-6 items-start">
+
+    {{-- ============================================================
+         SIDEBAR
+    ============================================================ --}}
+    <aside id="factoryReportAside" class="factory-aside rounded-3xl border border-[#e2e8e0] bg-white p-4 shadow-sm lg:sticky lg:top-24">
+
+        {{-- Reports dashboard / overview main link --}}
+        <a href="#order-production" data-spy="order-production"
+           class="nav-link is-active mb-4 flex items-center gap-3 rounded-2xl px-4 py-3 transition-all bg-[#f5f7f5] text-stone-700 border border-[#e2e8e0] hover:bg-[#edf2ec] hover:text-stone-900">
+            <span class="nav-chip flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-stone-100">
+                <svg class="h-5 w-5 text-stone-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                </svg>
+            </span>
+            <div>
+                <span class="block text-sm font-extrabold leading-tight">Reports Dashboard</span>
+                <span class="block text-[10px] text-stone-400 mt-0.5">Order-wise audit overview</span>
+            </div>
+        </a>
+
+        <div class="mb-2 px-1 text-[10px] font-bold uppercase tracking-widest text-stone-400">Sections</div>
+
+        <nav class="space-y-1.5" aria-label="Factory reports sections">
+
+            {{-- Mazdoor Khata / Wage Entry --}}
+            <a href="#wage-entry" data-spy="wage-entry"
+               class="nav-link flex items-center gap-3 w-full rounded-2xl px-3 py-2.5 text-xs font-bold transition-all text-stone-600 hover:bg-stone-100 hover:text-stone-900">
+                <span class="nav-chip flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-stone-100">
+                    <svg class="h-3.5 w-3.5 text-stone-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/>
+                    </svg>
+                </span>
+                <div>
+                    <span class="block leading-tight">Mazdoor Khata / Wages</span>
+                    <span class="block text-[10px] font-normal text-stone-400">Per metre, day or fixed earnings</span>
+                </div>
+                <span class="nav-dot ml-auto w-1.5 h-1.5 rounded-full bg-[#c6f16d] shrink-0 hidden"></span>
+            </a>
+
+            {{-- Loom Downtime / Maintenance --}}
+            <a href="#downtime" data-spy="downtime"
+               class="nav-link flex items-center gap-3 w-full rounded-2xl px-3 py-2.5 text-xs font-bold transition-all text-stone-600 hover:bg-stone-100 hover:text-stone-900">
+                <span class="nav-chip flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-stone-100">
+                    <svg class="h-3.5 w-3.5 text-stone-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                    </svg>
+                </span>
+                <div>
+                    <span class="block leading-tight">Loom Downtime</span>
+                    <span class="block text-[10px] font-normal text-stone-400">Breakdown minutes &amp; repair cost</span>
+                </div>
+                <span class="nav-dot ml-auto w-1.5 h-1.5 rounded-full bg-[#c6f16d] shrink-0 hidden"></span>
+            </a>
+
+            {{-- Recent Mazdoori Entries --}}
+            <a href="#recent-wages" data-spy="recent-wages"
+               class="nav-link flex items-center gap-3 w-full rounded-2xl px-3 py-2.5 text-xs font-bold transition-all text-stone-600 hover:bg-stone-100 hover:text-stone-900">
+                <span class="nav-chip flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-stone-100">
+                    <svg class="h-3.5 w-3.5 text-stone-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
+                    </svg>
+                </span>
+                <div>
+                    <span class="block leading-tight">Recent Mazdoori</span>
+                    <span class="block text-[10px] font-normal text-stone-400">Latest wage entries</span>
+                </div>
+                <span class="nav-dot ml-auto w-1.5 h-1.5 rounded-full bg-[#c6f16d] shrink-0 hidden"></span>
+            </a>
+
+            {{-- Recent Machine Stoppages --}}
+            <a href="#recent-stoppages" data-spy="recent-stoppages"
+               class="nav-link flex items-center gap-3 w-full rounded-2xl px-3 py-2.5 text-xs font-bold transition-all text-stone-600 hover:bg-stone-100 hover:text-stone-900">
+                <span class="nav-chip flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-stone-100">
+                    <svg class="h-3.5 w-3.5 text-stone-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v4m0 4h.01M5.06 19h13.88c1.54 0 2.5-1.67 1.73-3L13.73 4c-.77-1.33-2.69-1.33-3.46 0L3.33 16c-.77 1.33.19 3 1.73 3z"/>
+                    </svg>
+                </span>
+                <div>
+                    <span class="block leading-tight">Machine Stoppages</span>
+                    <span class="block text-[10px] font-normal text-stone-400">Latest downtime log</span>
+                </div>
+                <span class="nav-dot ml-auto w-1.5 h-1.5 rounded-full bg-[#c6f16d] shrink-0 hidden"></span>
+            </a>
+
+        </nav>
+
+        {{-- Floor snapshot --}}
+        <div class="mt-4 rounded-2xl bg-[#f5f7f5] border border-[#e2e8e0] p-3 space-y-2">
+            <div class="text-[10px] font-bold uppercase tracking-wider text-stone-400">Floor Snapshot</div>
+            <div class="flex items-center justify-between text-xs">
+                <span class="text-stone-500">Active Orders</span>
+                <span class="font-mono font-bold text-stone-900">{{ $orders->count() }}</span>
+            </div>
+            <div class="flex items-center justify-between text-xs">
+                <span class="text-stone-500">Looms Running</span>
+                <span class="font-mono font-bold text-stone-800">{{ $activeAssignments->count() }}</span>
+            </div>
+            <div class="flex items-center justify-between text-xs">
+                <span class="text-stone-500">Wage Entries</span>
+                <span class="font-mono font-bold text-stone-700">{{ $wages->count() }}</span>
+            </div>
+            <div class="pt-1.5 border-t border-[#e2e8e0] flex items-center justify-between text-xs">
+                <span class="text-stone-700 font-bold">Stoppages Logged</span>
+                <span class="font-mono font-black text-stone-900">{{ $stoppages->count() }}</span>
+            </div>
+        </div>
+
+        {{-- Quick actions --}}
+        <div class="mt-5 pt-4 border-t border-[#e2e8e0] space-y-1.5">
+            <div class="px-1 text-[10px] font-bold uppercase tracking-widest text-stone-400 mb-2">Quick Actions</div>
+            <a href="#wage-entry" class="flex items-center gap-2 w-full rounded-xl px-3 py-2 text-[11px] font-bold text-stone-700 hover:bg-stone-100 transition-colors">
+                <svg class="h-3.5 w-3.5 text-stone-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                </svg>
+                Record Wage
+            </a>
+            <a href="#downtime" class="flex items-center gap-2 w-full rounded-xl px-3 py-2 text-[11px] font-bold text-stone-700 hover:bg-stone-100 transition-colors">
+                <svg class="h-3.5 w-3.5 text-stone-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v4m0 4h.01M5.06 19h13.88c1.54 0 2.5-1.67 1.73-3L13.73 4c-.77-1.33-2.69-1.33-3.46 0L3.33 16c-.77 1.33.19 3 1.73 3z"/>
+                </svg>
+                Record Downtime
+            </a>
+            <a href="{{ route('factory.orders') }}" class="flex items-center gap-2 w-full rounded-xl px-3 py-2 text-[11px] font-bold text-stone-700 hover:bg-stone-100 transition-colors">
+                <svg class="h-3.5 w-3.5 text-stone-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+                Factory Orders
+            </a>
+            <a href="{{ route('factory.checking') }}" class="flex items-center gap-2 w-full rounded-xl px-3 py-2 text-[11px] font-bold text-stone-700 hover:bg-stone-100 transition-colors">
+                <svg class="h-3.5 w-3.5 text-stone-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
+                </svg>
+                Thaan Checking
+            </a>
+        </div>
+    </aside>
+
+    {{-- ============================================================
+         MAIN CONTENT
+    ============================================================ --}}
+    <div class="min-w-0 space-y-6">
     <header class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
             <span class="text-[11px] font-extrabold uppercase tracking-widest text-[#15803d]">OPERATIONAL AUDIT &amp; WAGES</span>
@@ -11,7 +173,7 @@
     </header>
 
     <!-- ORDER-WISE PRODUCTION AND PARTY HISAAB -->
-    <section class="card p-6 space-y-4 shadow-2xs">
+    <section id="order-production" class="card p-6 space-y-4 shadow-2xs scroll-mt-24">
         <div class="pb-3 border-b border-[#e2e8e0]">
             <h2 class="text-base font-extrabold text-[#133e2b]">Order-wise Production and Party Hisaab</h2>
             <p class="text-xs text-stone-500">Parta yarn estimates use checked metres and are converted from lb to kg. Recorded Taana/Baana issues are shown in kg. Metre variance is loom output minus checked length; investigate any difference before settling.</p>
@@ -67,7 +229,7 @@
     <div class="grid lg:grid-cols-2 gap-6">
         
         <!-- MAZDOOR KHATA / WAGE ENTRY -->
-        <section class="card p-6 space-y-4 shadow-2xs">
+        <section id="wage-entry" class="card p-6 space-y-4 shadow-2xs scroll-mt-24">
             <div class="pb-3 border-b border-[#e2e8e0]">
                 <h2 class="text-base font-extrabold text-[#133e2b]">Mazdoor Khata / Wage Entry</h2>
                 <p class="text-xs text-stone-500">Record weaver earnings per metre, per day or fixed salary.</p>
@@ -148,7 +310,7 @@
         </section>
 
         <!-- LOOM DOWNTIME / MAINTENANCE -->
-        <section class="card p-6 space-y-4 shadow-2xs">
+        <section id="downtime" class="card p-6 space-y-4 shadow-2xs scroll-mt-24">
             <div class="pb-3 border-b border-[#e2e8e0]">
                 <h2 class="font-extrabold text-base text-[#133e2b]">Loom Downtime / Maintenance</h2>
                 <p class="text-xs text-stone-500">Record breakdown minutes, causes, and estimated repair costs.</p>
@@ -211,7 +373,7 @@
     <!-- RECENT ENTRIES TABLES -->
     <div class="grid lg:grid-cols-2 gap-6">
         
-        <section class="card p-6 shadow-2xs space-y-3">
+        <section id="recent-wages" class="card p-6 shadow-2xs space-y-3 scroll-mt-24">
             <h3 class="font-extrabold text-sm text-[#133e2b] pb-3 border-b border-[#e2e8e0]">Recent Mazdoori Entries</h3>
             <div class="overflow-auto max-h-72 border border-stone-200 rounded-xl">
                 <table class="w-full text-xs">
@@ -242,7 +404,7 @@
             </div>
         </section>
 
-        <section class="card p-6 shadow-2xs space-y-3">
+        <section id="recent-stoppages" class="card p-6 shadow-2xs space-y-3 scroll-mt-24">
             <h3 class="font-extrabold text-sm text-[#133e2b] pb-3 border-b border-[#e2e8e0]">Recent Machine Stoppages</h3>
             <div class="overflow-auto max-h-72 border border-stone-200 rounded-xl">
                 <table class="w-full text-xs">
@@ -274,5 +436,48 @@
         </section>
 
     </div>
-</div>
+    </div>{{-- end main content --}}
+</div>{{-- end grid --}}
+
+<script>
+(function () {
+    var aside = document.getElementById('factoryReportAside');
+    if (!aside) {
+        return;
+    }
+    var links = Array.prototype.slice.call(aside.querySelectorAll('[data-spy]'));
+    var sections = links.map(function (l) { return document.getElementById(l.dataset.spy); }).filter(Boolean);
+
+    function setActive(id) {
+        links.forEach(function (l) { l.classList.toggle('is-active', l.dataset.spy === id); });
+    }
+
+    aside.querySelectorAll('a[href^="#"]').forEach(function (a) {
+        a.addEventListener('click', function (e) {
+            var id = this.getAttribute('href').slice(1);
+            var el = document.getElementById(id);
+            if (!el) {
+                return;
+            }
+            e.preventDefault();
+            el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            setActive(id);
+            if (window.history && window.history.replaceState) {
+                window.history.replaceState(null, '', '#' + id);
+            }
+        });
+    });
+
+    if ('IntersectionObserver' in window && sections.length) {
+        var observer = new IntersectionObserver(function (entries) {
+            entries.forEach(function (entry) {
+                if (entry.isIntersecting) {
+                    setActive(entry.target.id);
+                }
+            });
+        }, { rootMargin: '-25% 0px -65% 0px', threshold: 0 });
+        sections.forEach(function (s) { observer.observe(s); });
+    }
+})();
+</script>
 @endsection
