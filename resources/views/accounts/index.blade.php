@@ -79,53 +79,125 @@
         </form>
     </section>
 
-    <section id="record-supplier-payment" class="rounded-3xl border border-zinc-200 bg-white p-5 shadow-sm sm:p-6">
+    <section id="record-party-payment" class="rounded-3xl border border-zinc-200 bg-white p-5 shadow-sm sm:p-6">
         <div class="mb-4">
-            <h2 class="text-sm font-extrabold text-zinc-900">Record supplier payment</h2>
-            <p class="mt-1 text-xs text-zinc-500">Save a payment against an existing supplier ledger and cash or bank account.</p>
+            <h2 class="text-sm font-extrabold text-zinc-900">Record customer or supplier payment</h2>
+            <p class="mt-1 text-xs text-zinc-500">Choose the party account and record money received from a customer or paid to a supplier.</p>
         </div>
-        @if($supplierAccounts->isEmpty())
-            <p class="rounded-xl border border-dashed border-zinc-300 bg-zinc-50 px-4 py-3 text-xs text-zinc-600">Supplier accounts appear here after a purchase or supplier transaction is posted.</p>
-        @elseif($activeFinancialAccounts->isEmpty())
-            <p class="rounded-xl border border-dashed border-amber-300 bg-amber-50 px-4 py-3 text-xs text-amber-900">Add an active cash or bank account in Invoices → Accounts before recording a supplier payment.</p>
+        @if($activeFinancialAccounts->isEmpty())
+            <p class="rounded-xl border border-dashed border-amber-300 bg-amber-50 px-4 py-3 text-xs text-amber-900">Add an active cash or bank account before recording a party payment.</p>
+        @elseif($customerAccounts->isEmpty() && $supplierAccounts->isEmpty())
+            <p class="rounded-xl border border-dashed border-zinc-300 bg-zinc-50 px-4 py-3 text-xs text-zinc-600">Create a customer or supplier account above before recording a payment.</p>
         @else
-            <form method="POST" action="{{ route('accounts.supplier-payment.store') }}" class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-6">
+            <form id="accounts-party-payment-form" method="POST" action="{{ old('payment_kind', $supplierAccounts->isNotEmpty() ? 'paid' : 'received') === 'received' ? route('invoices.payment.store') : route('accounts.supplier-payment.store') }}" class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-6">
                 @csrf
-                <label class="text-[11px] font-bold text-zinc-600 xl:col-span-3">Supplier account
-                    <select name="supplier_id" required class="mt-1 w-full rounded-xl border border-zinc-300 bg-white px-3 py-2.5 text-xs text-zinc-900 focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-200">
-                        <option value="">Choose supplier account</option>
+                <label class="text-[11px] font-bold text-zinc-600">Payment direction
+                    <select id="accounts-payment-kind" name="payment_kind" required class="mt-1 w-full rounded-xl border border-zinc-300 bg-white px-3 py-2.5 text-xs text-zinc-900">
+                        @if($supplierAccounts->isNotEmpty())<option value="paid" @selected(old('payment_kind', $supplierAccounts->isNotEmpty() ? 'paid' : 'received') === 'paid')>Pay supplier</option>@endif
+                        @if($customerAccounts->isNotEmpty())<option value="received" @selected(old('payment_kind', $supplierAccounts->isNotEmpty() ? 'paid' : 'received') === 'received')>Receive from customer</option>@endif
+                    </select>
+                </label>
+                <label id="accounts-supplier-field" class="text-[11px] font-bold text-zinc-600 sm:col-span-2">Supplier account
+                    <select name="supplier_id" required class="mt-1 w-full rounded-xl border border-zinc-300 bg-white px-3 py-2.5 text-xs text-zinc-900">
+                        <option value="">Choose supplier</option>
                         @foreach($supplierAccounts as $supplier)
                             <option value="{{ $supplier->id }}" @selected(old('supplier_id') == $supplier->id)>{{ $supplier->name }} · {{ ucfirst(str_replace('_', ' ', $supplier->type)) }}</option>
                         @endforeach
                     </select>
                 </label>
-                <label class="text-[11px] font-bold text-zinc-600 xl:col-span-2">Pay from
-                    <select name="financial_account_id" required class="mt-1 w-full rounded-xl border border-zinc-300 bg-white px-3 py-2.5 text-xs text-zinc-900 focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-200">
-                        <option value="">Select cash or bank account</option>
-                        @foreach($activeFinancialAccounts as $account)
-                            <option value="{{ $account->id }}" @selected(old('financial_account_id') == $account->id)>{{ $account->name }} · {{ ucfirst($account->type) }}</option>
+                <label id="accounts-customer-field" class="hidden text-[11px] font-bold text-zinc-600 sm:col-span-2">Customer account
+                    <select name="customer_id" required disabled class="mt-1 w-full rounded-xl border border-zinc-300 bg-white px-3 py-2.5 text-xs text-zinc-900">
+                        <option value="">Choose customer</option>
+                        @foreach($customerAccounts as $customer)
+                            <option value="{{ $customer->id }}" @selected(old('customer_id') == $customer->id)>{{ $customer->name }}</option>
                         @endforeach
                     </select>
                 </label>
-                <label class="text-[11px] font-bold text-zinc-600">Payment date
-                    <input type="date" name="payment_date" required value="{{ old('payment_date', now()->toDateString()) }}" class="mt-1 w-full rounded-xl border border-zinc-300 px-3 py-2.5 text-xs text-zinc-900 focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-200">
+                <label class="text-[11px] font-bold text-zinc-600 sm:col-span-2">
+                    <span id="accounts-financial-account-label">Pay from</span>
+                    <select name="financial_account_id" required class="mt-1 w-full rounded-xl border border-zinc-300 bg-white px-3 py-2.5 text-xs text-zinc-900">
+                        <option value="">Choose cash or bank account</option>
+                        @foreach($activeFinancialAccounts as $account)
+                            <option value="{{ $account->id }}" data-account-type="{{ $account->type }}" @selected(old('financial_account_id') == $account->id)>{{ $account->name }} · {{ ucfirst($account->type) }}</option>
+                        @endforeach
+                    </select>
+                </label>
+                <label class="text-[11px] font-bold text-zinc-600">Date
+                    <input type="date" name="payment_date" required value="{{ old('payment_date', now()->toDateString()) }}" class="mt-1 w-full rounded-xl border border-zinc-300 px-3 py-2.5 text-xs text-zinc-900">
                 </label>
                 <label class="text-[11px] font-bold text-zinc-600">Amount (PKR)
-                    <input type="number" name="amount" min="0.01" step="0.01" required value="{{ old('amount') }}" placeholder="0.00" class="mt-1 w-full rounded-xl border border-zinc-300 px-3 py-2.5 text-xs font-mono text-zinc-900 focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-200">
+                    <input type="number" name="amount" min="0.01" step="0.01" required value="{{ old('amount') }}" placeholder="0.00" class="mt-1 w-full rounded-xl border border-zinc-300 px-3 py-2.5 text-xs font-mono text-zinc-900">
                 </label>
-                <label class="text-[11px] font-bold text-zinc-600 xl:col-span-2">Reference
-                    <input name="reference" maxlength="120" value="{{ old('reference') }}" placeholder="Payment reference or cheque number" class="mt-1 w-full rounded-xl border border-zinc-300 px-3 py-2.5 text-xs text-zinc-900 focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-200">
+                <label id="accounts-receipt-number-field" class="hidden text-[11px] font-bold text-zinc-600 sm:col-span-2">Receipt number
+                    <input name="receipt_no" maxlength="100" disabled value="{{ old('receipt_no', 'RCPT-'.now()->format('ymdHis').'-'.strtoupper(\Illuminate\Support\Str::random(4))) }}" class="mt-1 w-full rounded-xl border border-zinc-300 px-3 py-2.5 text-xs text-zinc-900">
                 </label>
-                <label class="text-[11px] font-bold text-zinc-600 xl:col-span-3">Notes
-                    <input name="notes" maxlength="1000" value="{{ old('notes') }}" placeholder="Optional payment notes" class="mt-1 w-full rounded-xl border border-zinc-300 px-3 py-2.5 text-xs text-zinc-900 focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-200">
+                <label id="accounts-payment-method-field" class="hidden text-[11px] font-bold text-zinc-600">Method
+                    <select name="method" disabled class="mt-1 w-full rounded-xl border border-zinc-300 bg-white px-3 py-2.5 text-xs text-zinc-900">
+                        <option value="cash" @selected(old('method') === 'cash')>Cash</option><option value="bank_transfer" @selected(old('method', 'bank_transfer') === 'bank_transfer')>Bank transfer</option><option value="cheque" @selected(old('method') === 'cheque')>Cheque</option><option value="card" @selected(old('method') === 'card')>Card</option><option value="other" @selected(old('method') === 'other')>Other</option>
+                    </select>
                 </label>
-                <div class="flex items-end xl:col-span-1">
-                    <button type="submit" class="w-full rounded-xl bg-zinc-900 px-4 py-2.5 text-xs font-extrabold text-white shadow-sm hover:bg-zinc-700">Save payment</button>
-                </div>
+                <label class="text-[11px] font-bold text-zinc-600 sm:col-span-2">Reference
+                    <input name="reference" maxlength="120" value="{{ old('reference') }}" placeholder="Payment reference or cheque number" class="mt-1 w-full rounded-xl border border-zinc-300 px-3 py-2.5 text-xs text-zinc-900">
+                </label>
+                <label class="text-[11px] font-bold text-zinc-600 sm:col-span-3">Notes
+                    <input name="notes" maxlength="1000" value="{{ old('notes') }}" placeholder="Optional payment notes" class="mt-1 w-full rounded-xl border border-zinc-300 px-3 py-2.5 text-xs text-zinc-900">
+                </label>
+                <input type="hidden" name="allocation_mode" value="oldest" disabled>
+                <input type="hidden" name="return_to_account" value="1" disabled>
+                <div class="flex items-end xl:col-span-1"><button id="accounts-payment-submit" type="submit" class="w-full rounded-xl bg-zinc-900 px-4 py-2.5 text-xs font-extrabold text-white shadow-sm hover:bg-zinc-700">Record supplier payment</button></div>
             </form>
+            <script>
+                (() => {
+                    const form = document.getElementById('accounts-party-payment-form');
+                    const kind = document.getElementById('accounts-payment-kind');
+                    const supplierField = document.getElementById('accounts-supplier-field');
+                    const customerField = document.getElementById('accounts-customer-field');
+                    const receiptField = document.getElementById('accounts-receipt-number-field');
+                    const methodField = document.getElementById('accounts-payment-method-field');
+                    const submit = document.getElementById('accounts-payment-submit');
+                    const accountLabel = document.getElementById('accounts-financial-account-label');
+                    const accountSelect = form.querySelector('[name="financial_account_id"]');
+                    const methodSelect = methodField.querySelector('select');
+                    const toggleField = (field, enabled) => {
+                        field.classList.toggle('hidden', !enabled);
+                        field.querySelectorAll('input, select').forEach((input) => {
+                            input.disabled = !enabled;
+                            if (['customer_id', 'supplier_id', 'receipt_no', 'method'].includes(input.name)) {
+                                input.required = enabled;
+                            }
+                        });
+                    };
+                    const updatePaymentForm = () => {
+                        const isCustomerReceipt = kind.value === 'received';
+                        form.action = isCustomerReceipt ? @json(route('invoices.payment.store')) : @json(route('accounts.supplier-payment.store'));
+                        toggleField(supplierField, !isCustomerReceipt);
+                        toggleField(customerField, isCustomerReceipt);
+                        toggleField(receiptField, isCustomerReceipt);
+                        toggleField(methodField, isCustomerReceipt);
+                        form.querySelector('[name="allocation_mode"]').disabled = !isCustomerReceipt;
+                        form.querySelector('[name="return_to_account"]').disabled = !isCustomerReceipt;
+                        accountLabel.textContent = isCustomerReceipt ? 'Receive into' : 'Pay from';
+                        submit.textContent = isCustomerReceipt ? 'Record customer receipt' : 'Record supplier payment';
+                        updatePaymentMethod();
+                    };
+                    const updatePaymentMethod = () => {
+                        if (kind.value !== 'received') {
+                            return;
+                        }
+                        const accountType = accountSelect.selectedOptions[0]?.dataset.accountType;
+                        if (accountType === 'cash') {
+                            methodSelect.value = 'cash';
+                        } else if (accountType === 'bank' && methodSelect.value === 'cash') {
+                            methodSelect.value = 'bank_transfer';
+                        }
+                    };
+                    kind.addEventListener('change', updatePaymentForm);
+                    accountSelect.addEventListener('change', updatePaymentMethod);
+                    updatePaymentForm();
+                })();
+            </script>
         @endif
     </section>
-
     <section class="grid grid-cols-1 gap-6 xl:grid-cols-2">
         <article class="overflow-hidden rounded-3xl border border-zinc-200 bg-white shadow-sm">
             <div class="flex items-center justify-between gap-3 border-b border-zinc-100 px-5 py-4">
