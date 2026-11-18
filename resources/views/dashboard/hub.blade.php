@@ -5,38 +5,13 @@
 @section('content')
 <div class="space-y-6 max-w-7xl mx-auto">
     
-    <!-- GREETING & PAGE HEADER -->
-    <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
-        <div>
-            <span class="text-[11px] font-extrabold uppercase tracking-widest text-[#15803d]">OPERATIONS HOME</span>
-            <h1 class="text-2xl sm:text-3xl lg:text-4xl font-black text-[#133e2b] tracking-tight mt-1">
-                @php
-                    $hour = (int) date('H');
-                    $greeting = $hour < 12 ? 'Good morning' : ($hour < 17 ? 'Good afternoon' : 'Good evening');
-                @endphp
-                {{ $greeting }}. Here's the factory.
-            </h1>
-            <p class="text-xs sm:text-sm text-stone-500 mt-1">
-                One glance. The most important work is right here.
-            </p>
-        </div>
-        <div class="flex items-center gap-2">
-            <a href="{{ route('factory.orders') }}" class="px-3.5 py-2 rounded-xl text-xs font-bold bg-white border border-[#e2e8e0] text-[#133e2b] hover:bg-stone-50 shadow-2xs transition-all">
-                Orders & Looms &rarr;
-            </a>
-            <a href="{{ route('factory.checking') }}" class="px-3.5 py-2 rounded-xl text-xs font-bold bg-[#133e2b] text-white hover:bg-[#163e2d] shadow-2xs transition-all">
-                + Checking Thaan
-            </a>
-        </div>
-    </div>
-
     <!-- CUSTOMER ACCEPTANCE PRIORITY -->
     <section class="overflow-hidden rounded-3xl border border-[#e2e8e0] bg-white shadow-sm">
         <div class="grid grid-cols-1 lg:grid-cols-12">
             
             <!-- Left Info & CTA -->
             <div class="p-6 sm:p-8 lg:col-span-7 flex flex-col items-start justify-center">
-                <h2 class="mt-4 text-2xl sm:text-3xl font-extrabold tracking-tight text-[#18231d] leading-tight">
+                <h2 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-[#18231d] leading-tight">
                     @if($pendingPakkiCount > 0)
                         {{ $pendingPakkiCount }} Pakki {{ $pendingPakkiCount == 1 ? 'Parchi needs' : 'Parchis need' }} recording.
                     @else
@@ -44,11 +19,7 @@
                     @endif
                 </h2>
 
-                <p class="mt-3 text-sm text-stone-600 max-w-xl leading-relaxed">
-                    Customer fabric has been dispatched. Record accepted metres to calculate the correct weaving bill and close party dispatches.
-                </p>
-
-                <div class="mt-5 flex flex-wrap items-center gap-3">
+                <div class="mt-5 flex flex-wrap items-center" style="column-gap: 1rem; row-gap: 0.75rem;">
                     <a href="{{ route('sales.index') }}" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#133e2b] hover:bg-[#1b4835] text-white font-bold text-xs shadow-sm transition-colors">
                         <span>Open Sales &amp; Parchis</span>
                         <span class="text-sm" aria-hidden="true">&nearr;</span>
