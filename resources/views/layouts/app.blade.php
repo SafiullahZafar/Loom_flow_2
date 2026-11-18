@@ -327,6 +327,7 @@
             } elseif (str_starts_with($currentRoute, 'expenses')) {
                 $pageTitle = '8. Expenses';
             }
+            $pageHeading = preg_replace('/^\d+\.\s*/', '', $pageTitle);
         @endphp
 
         <!-- BACKDROP FOR MOBILE SIDEBAR -->
@@ -540,26 +541,26 @@
         <div class="flex-1 flex flex-col min-w-0 min-h-screen">
             
             <!-- TOP BAR HEADER -->
-            <header class="sticky top-0 z-30 border-b border-[#e2e8e0] bg-white px-4 py-3.5 shadow-sm sm:px-8">
-                <div class="flex min-h-11 items-center justify-between gap-4">
+            <header class="sticky top-0 z-30 border-b border-[#dce6de] bg-gradient-to-r from-white via-white to-[#f1f7f1] px-4 py-3 sm:px-8">
+                <div class="flex min-h-12 items-center justify-between gap-4">
                     <div class="flex min-w-0 items-center gap-3 sm:gap-4">
-                        <button type="button" onclick="toggleSidebar()" class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#e2e8e0] bg-white text-[#133e2b] transition hover:bg-emerald-50 lg:hidden" aria-label="Open navigation menu">
+                        <button type="button" onclick="toggleSidebar()" class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#dce6de] bg-white text-[#133e2b] shadow-sm transition hover:border-[#b7cdbd] hover:bg-emerald-50 lg:hidden" aria-label="Open navigation menu">
                             <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
                         </button>
                         <div class="min-w-0">
-                            <div class="text-[10px] font-extrabold uppercase tracking-[0.16em] text-stone-400">LoomFlow workspace</div>
-                            <div class="mt-0.5 truncate text-base font-black tracking-tight text-[#133e2b] sm:text-lg">{{ $pageTitle }}</div>
+                            <div class="text-[10px] font-extrabold uppercase tracking-[0.16em] text-stone-400">Workspace</div>
+                            <div class="mt-0.5 truncate text-lg font-black leading-tight tracking-tight text-[#133e2b] sm:text-xl">{{ $pageHeading }}</div>
                         </div>
                     </div>
 
                     @auth
-                        <div class="flex shrink-0 items-center gap-3 rounded-2xl border border-[#e2e8e0] bg-[#f7f9f7] py-1.5 pl-2 pr-3 sm:pl-2.5 sm:pr-4" title="Signed in as {{ Auth::user()->name }}">
-                            <div class="flex h-9 w-9 items-center justify-center rounded-xl border border-[#b4e857] bg-[#c6f16d] text-xs font-black text-[#133e2b] shadow-sm">
+                        <div class="flex max-w-[45vw] shrink-0 items-center gap-2.5 rounded-xl border border-[#dce6de] bg-white px-2.5 py-2 shadow-sm sm:max-w-[250px] sm:gap-3 sm:px-3" title="{{ Auth::user()->name }}">
+                            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#133e2b] text-xs font-black tracking-wide text-[#c6f16d] ring-2 ring-emerald-100">
                                 {{ strtoupper(substr(Auth::user()->name, 0, 2)) }}
                             </div>
-                            <div class="hidden min-w-0 sm:block">
-                                <div class="text-[9px] font-bold uppercase tracking-wider text-stone-400">Signed in</div>
-                                <div class="max-w-40 truncate text-xs font-extrabold text-stone-800">{{ Auth::user()->name }}</div>
+                            <div class="min-w-0 flex-1">
+                                <div class="break-words text-xs font-black leading-4 text-stone-900 sm:text-sm">{{ Auth::user()->name }}</div>
+                                <div class="mt-1 text-[10px] font-bold uppercase tracking-[0.12em] text-stone-500">Account</div>
                             </div>
                         </div>
                     @else
